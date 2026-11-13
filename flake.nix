@@ -19,7 +19,7 @@
             pname = "udanax-green";
             version = "1999-09-29";
             src = self;
-            nativeBuildInputs = [ pkgs.gnumake pkgs.python3 ];
+            nativeBuildInputs = [ pkgs.gnumake pkgs.python3 pkgs.xorg.xorgserver ];
 
             buildPhase = ''
               runHook preBuild
@@ -45,6 +45,9 @@
               sh tests/text-persistence.sh "$PWD/green/be_source/xumain"
               python3 pyxi/test.py > /dev/null
               python3 tests/pyxi-backend-failure.py ${pkgs.coreutils}/bin/false
+              sh tests/pyxi-state.sh
+              ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
+                tests/pyxi-tk-selection.py ${pkgs.xorg.xorgserver}/bin/Xvfb
               python3 tests/pyxi-protocol.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
               runHook postCheck
             '';
@@ -76,17 +79,13 @@
               runHook preInstall
               mkdir -p "$out/share/udanax-green/pyxi" "$out/bin"
               cp pyxi/pyxi pyxi/x88.py pyxi/tktrans.py "$out/share/udanax-green/pyxi/"
+              install -m755 scripts/prepare-pyxi-state.sh "$out/share/udanax-green/pyxi/prepare-state.sh"
               cat > "$out/bin/udanax-pyxi" <<'EOF'
               #!${pkgs.runtimeShell}
               set -eu
               state="''${UDANAX_GREEN_STATE_DIR:-''${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green}"
-              mkdir -p "$state/be"
-              if [ ! -e "$state/be/backend" ]; then
-                ln -s ${green}/bin/udanax-backend "$state/be/backend"
-              fi
-              if [ ! -e "$state/be/enf.enf" ]; then
-                cp ${green}/share/udanax-green/enfs/sample.enf "$state/be/enf.enf"
-              fi
+              ${pkgs.runtimeShell} "$(dirname "$0")/../share/udanax-green/pyxi/prepare-state.sh" \
+                "$state" ${green}/bin/udanax-backend ${green}/share/udanax-green/enfs/sample.enf
               cd "$state"
               exec ${pythonTk}/bin/python3 "$(dirname "$0")/../share/udanax-green/pyxi/pyxi" "$@"
               EOF

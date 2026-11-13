@@ -131,6 +131,10 @@ with `nix build .#pyxi`. This launcher prepares a writable copy of the sample
 database in `${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green/be/enf.enf`
 and starts the backend through pipes. The original sample in the Nix store is
 never modified. Changes to the local database persist between launches.
+The launcher sets owner-write permission on the copied sample and repairs
+read-only copies left by older launcher versions without replacing their
+contents. Database symlinks are rejected to avoid chmodding a Nix store path.
+If the database belongs to another user, repair its ownership separately.
 
 Use `nix develop` for a Python interpreter with Tkinter support, and invoke
 `python3 pyxi/test.py` for its historical mocked-protocol test suite.
@@ -214,3 +218,23 @@ safe control test. If it works while the normal app crashes, preserve the
 original `enf.enf` for debugging. Neither an abort signal nor the presence of
 `backenderror` alone proves that the database is corrupted. The GUI regression
 suite checks log collection even when the GUI changes its working directory.
+
+## Read-only sample database and Tk selection fixes
+
+The sample database shipped in the Nix store is mode `0444`. Older Pyxi
+launchers copied it directly into the persistent state directory without
+adding write permission, so opening a document caused `initenffile: Permission
+denied` and a `SIGABRT`/broken pipe. The launcher now uses
+`scripts/prepare-pyxi-state.sh` to make its *private copy* owner-writable,
+including copies left by earlier versions. It never overwrites existing data
+and refuses database symlinks. Run `nix run .#pyxi` after updating; there is
+no need to delete or reset the old database.
+
+On modern Python/Tk, `Text.tag_ranges("sel")` returns `_tkinter.Tcl_Obj`
+indices rather than strings. The original `XuText.position()` rejected those
+objects, producing `TypeError: 7.193 is not an index, position, or address`
+when using **Link → Add Source End** or **Add Target End**. Pyxi now accepts
+Tk index objects and normalizes selection ranges to strings. The flake check
+runs `tests/pyxi-tk-selection.py` on a private Xvfb server to exercise both
+link-menu callbacks using actual Tk selection indices. This validates adding
+link ends to the menu, not creating and following a complete backend link.

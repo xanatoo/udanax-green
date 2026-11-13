@@ -29,6 +29,7 @@
 
 import sys, os, string, x88, tktrans
 from tkinter import *
+from _tkinter import Tcl_Obj
 
 REVISION = "$Revision: 2.31 $"
 VERSION = x88.Address(REVISION.split()[1])
@@ -83,8 +84,9 @@ class XuText(Text):
     def position(self, other):
         if type(other) is type(1) or other is None:
             return other
-        elif type(other) is type(""):
-            return len(self.get("1.0", other))
+        elif isinstance(other, (str, Tcl_Obj)):
+            # Modern Tkinter returns Tcl_Obj indices from tag_ranges().
+            return len(self.get("1.0", str(other)))
         elif x88.istype(x88.Address, other):
             if len(other) > 2:
                 other = self.docid.localize(other)
@@ -95,8 +97,8 @@ class XuText(Text):
             raise TypeError("%s is not an index, position, or address" % other)
 
     def index(self, other):
-        if type(other) is type(""):
-            return Text.index(self, other)
+        if isinstance(other, (str, Tcl_Obj)):
+            return Text.index(self, str(other))
         else:
             return "1.0 + %d c" % self.position(other)
 
@@ -143,9 +145,10 @@ class XuText(Text):
         return len(self.tag_ranges("sel")) > 0
 
     def selind(self):
-        range = self.tag_ranges("sel")
-        if not range: raise ValueError("no text is selected")
-        return range
+        ranges = self.tag_ranges("sel")
+        if not ranges: raise ValueError("no text is selected")
+        # Normalize Tk's native textindex objects to ordinary Python strings.
+        return tuple(map(str, ranges))
 
     def selvspan(self):
         start, end = self.selind()
