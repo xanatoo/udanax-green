@@ -279,7 +279,7 @@ freediskconscell *hashfromdiskblock(diskblocknumber)
 INT fdhash(diskblocknumber)
   INT diskblocknumber;
 {
-	return (abs(diskblocknumber*FDHASHMULT)%FDHASHTABLESIZE);
+	return (INT)(((unsigned long long)(unsigned INT)diskblocknumber * FDHASHMULT) % FDHASHTABLESIZE);
 }
 #define BESTFIT
 #ifdef BESTFIT
@@ -366,51 +366,41 @@ if (size != 1010 && size >990) {
 }
 
 
-deletefromfreediskstructures(diskentry)
+/* Both index nodes share one entry; unlink both before freeing it. */
+void deletefromfreediskstructures(diskentry)
   freediskentry *diskentry;
 {
-  INT temp;
-  freediskconscell *ptr,*newptr,*oldptr;
-	/* first change hash table*/
-	temp = fdhash(ntohl(diskentry->partialdiskblocknumber));
-	oldptr = 0;
-	for (ptr = fdhashtable[temp]; ptr; ptr = ptr->next) {
-		if (ptr->stuff->partialdiskblocknumber == diskentry->partialdiskblocknumber) {
-			newptr = ptr;
-			break;
-		}
-		oldptr = ptr;
-	}
-	if (oldptr == newptr) {
-#ifndef DISTRIBUTION
-		gerror("in hashfromdiskblock not found\n");
-#else
-		gerror("");
-#endif
-	}
-	if (oldptr == 0) {
-		fdhashtable[temp] = newptr->next;
-	} else {
-		oldptr->next = newptr->next;
-	}
-	/* next change ordered table */
-	temp = ntohs(diskentry->freespaceinloaf)/SIZEOFFREEDISKBUCKET;
-	oldptr = 0;
-	for (ptr = fdorderedtable[temp]; ptr; ptr = ptr->next) {
-		if (ptr->stuff->partialdiskblocknumber == diskentry->partialdiskblocknumber) {
-			newptr = ptr;
-			break;
-		}
-		oldptr = ptr;
-	}
-	if (oldptr = 0) {
-		fdorderedtable[temp] = newptr->next;
-	} else {
-		oldptr->next = newptr->next;
-	}
-	/*then delete stuff left lying around  do this more efficiently later */
-	free((char *) newptr->stuff);
-	free((char *) newptr);
+  INT hashbucket, sizebucket;
+  freediskconscell **link, *hashnode, *orderednode;
+
+  hashbucket = fdhash(ntohl(diskentry->partialdiskblocknumber));
+  sizebucket = ntohs(diskentry->freespaceinloaf)/SIZEOFFREEDISKBUCKET;
+  for (link = &fdhashtable[hashbucket]; *link; link = &(*link)->next)
+    if ((*link)->stuff == diskentry)
+      break;
+  hashnode = *link;
+  if (!hashnode) {
+    gerror("free disk entry absent from hash table");
+    return;
+  }
+  /* Check both indexes before mutating either one. */
+  for (link = &fdorderedtable[sizebucket]; *link; link = &(*link)->next)
+    if ((*link)->stuff == diskentry)
+      break;
+  orderednode = *link;
+  if (!orderednode) {
+    gerror("free disk entry absent from ordered table");
+    return;
+  }
+  *link = orderednode->next;
+
+  for (link = &fdhashtable[hashbucket]; *link != hashnode; link = &(*link)->next)
+    ;
+  *link = hashnode->next;
+
+  free((char *)orderednode);
+  free((char *)hashnode);
+  free((char *)diskentry);
 }
 
 #ifdef UnDEfiNed

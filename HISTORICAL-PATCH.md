@@ -42,3 +42,13 @@ Compare with:
 git diff d33c663..historical/roger-gregory-2007
 git log --graph --oneline --all --decorate
 ```
+
+## Further review: free-disk index deletion
+
+The 2007 tree changes `if (oldptr = 0)` to `if (oldptr == 0)` in
+`multiloaf.c`. This is a real assignment-in-conditional bug, but the routine
+still unlinks only the ordered table node; the hash table retains a node
+referencing freed memory. The curated port uses a separately written
+replacement that removes both nodes and frees the shared entry once, with
+`tests/freedisk.c` providing a focused regression test. No wholesale disk
+persistence edits from the historical tree were imported.

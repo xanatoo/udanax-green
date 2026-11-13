@@ -31,6 +31,14 @@
                 all
               runHook postBuild
             '';
+            doCheck = true;
+            checkPhase = ''
+              runHook preCheck
+              "$CC" ${legacyCflags} -ffunction-sections -fdata-sections \
+                tests/freedisk.c -Wl,--gc-sections -o freedisk-test
+              ./freedisk-test
+              runHook postCheck
+            '';
             installPhase = ''
               runHook preInstall
               install -Dm755 green/be_source/xumain "$out/bin/udanax-xumain"

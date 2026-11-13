@@ -42,3 +42,17 @@ invocation enters an input loop on EOF; do not treat it as a passing
 functional test. The original code also makes assumptions about pointer
 sizes, data layouts, and file formats. Interactive frontend, database
 correctness, and cross-architecture operation remain **unverified**.
+
+## Historical 2007 disk allocator fix
+
+The historical branch corrected `if (oldptr = 0)` in the free-disk ordered
+index deletion. Further review showed that the same function left the hash
+index node behind while freeing the entry shared by both indexes. Rather than
+apply the one-character patch alone, the current port removes **both** index
+nodes before freeing their shared entry. `tests/freedisk.c` tests deletion
+from multi-entry lists; it runs during the Nix package check phase. The test
+has passed under AddressSanitizer on x86_64 Linux, but it is not a persistent
+database round-trip test. The original allocator has other unverified paths,
+including `changefreediskstructures`. Hash bucket computation now uses
+unsigned wide arithmetic to avoid signed integer overflow; the hash table is
+process-local and is not part of the on-disk representation.
