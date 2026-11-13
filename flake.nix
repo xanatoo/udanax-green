@@ -44,7 +44,7 @@
                 "$PWD/green/be_source/xumain" "$PWD/enfs/sample.enf"
               sh tests/text-persistence.sh "$PWD/green/be_source/xumain"
               python3 pyxi/test.py > /dev/null
-              python3 tests/pyxi-backend-failure.py
+              python3 tests/pyxi-backend-failure.py ${pkgs.coreutils}/bin/false
               python3 tests/pyxi-protocol.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
               runHook postCheck
             '';
