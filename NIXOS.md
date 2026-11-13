@@ -141,3 +141,19 @@ The graphical application has been launched under Xvfb and has not shown a
 Python traceback during startup, but interactive GUI editing, link editing and
 version creation are **not yet verified**. Historical backend version creation
 still has a known failure. Full `nix flake check` also needs a local NixOS run.
+
+## Flake applications
+
+The flake exposes named apps with `meta.description` strings:
+
+| Command | Purpose |
+| --- | --- |
+| `nix run` or `nix run .#pyxi` | Graphical Pyxi browser/editor (default app) |
+| `nix run .#xumain` | Interactive protocol console (creates/opens `./enf.enf`) |
+| `nix run .#backend` | Pipe-protocol backend, for frontend integration |
+| `nix run .#backenddaemon` | Historical network backend daemon, for advanced use |
+
+`xumain` operates in the current directory, which must be writable.
+The two low-level backend apps do not provide a user interface on their own;
+they require the corresponding client and protocol setup. Pyxi is the
+recommended interactive entry point and keeps its database under XDG state.

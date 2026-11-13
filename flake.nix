@@ -106,12 +106,27 @@
           inherit pyxi;
         });
 
-      apps = forSystems (pkgs: {
-        pyxi = {
-          type = "app";
-          program = "${self.packages.${pkgs.system}.pyxi}/bin/udanax-pyxi";
-        };
-      });
+      apps = forSystems (pkgs:
+        let
+          green = self.packages.${pkgs.system}.udanax-green;
+          pyxi = self.packages.${pkgs.system}.pyxi;
+          app = program: description: {
+            type = "app";
+            inherit program;
+            meta = { inherit description; };
+          };
+        in {
+          default = app "${pyxi}/bin/udanax-pyxi"
+            "Launch the historical Pyxi hypertext GUI (Python 3 / Tk)";
+          pyxi = app "${pyxi}/bin/udanax-pyxi"
+            "Run the Pyxi graphical document browser and editor";
+          xumain = app "${green}/bin/udanax-xumain"
+            "Run the interactive standalone backend protocol console (uses ./enf.enf)";
+          backend = app "${green}/bin/udanax-backend"
+            "Run the low-level pipe-based backend (requires a protocol client)";
+          backenddaemon = app "${green}/bin/udanax-backenddaemon"
+            "Run the historical network backend daemon (advanced use)";
+        });
 
       devShells = forSystems (pkgs: {
         default = pkgs.mkShell {
