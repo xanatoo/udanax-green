@@ -19,7 +19,7 @@
             pname = "udanax-green";
             version = "1999-09-29";
             src = self;
-            nativeBuildInputs = [ pkgs.gnumake pkgs.python3 pkgs.xorg.xorgserver ];
+            nativeBuildInputs = [ pkgs.gnumake pkgs.python3 pkgs.xorg-server ];
 
             buildPhase = ''
               runHook preBuild
@@ -47,18 +47,18 @@
               python3 tests/pyxi-backend-failure.py ${pkgs.coreutils}/bin/false
               sh tests/pyxi-state.sh
               ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
-                tests/pyxi-tk-selection.py ${pkgs.xorg.xorgserver}/bin/Xvfb
+                tests/pyxi-tk-selection.py ${pkgs.xorg-server}/bin/Xvfb
               python3 tests/pyxi-protocol.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
               python3 tests/link-persistence.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
               ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
                 tests/pyxi-linked-documents.py "$PWD/green/be_source/backend" \
-                "$PWD/enfs/sample.enf" ${pkgs.xorg.xorgserver}/bin/Xvfb
+                "$PWD/enfs/sample.enf" ${pkgs.xorg-server}/bin/Xvfb
               ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
                 tests/pyxi-paste.py "$PWD/green/be_source/backend" \
-                "$PWD/enfs/sample.enf" ${pkgs.xorg.xorgserver}/bin/Xvfb
+                "$PWD/enfs/sample.enf" ${pkgs.xorg-server}/bin/Xvfb
               ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
                 tests/pyxi-compare.py "$PWD/green/be_source/backend" \
-                "$PWD/enfs/sample.enf" ${pkgs.xorg.xorgserver}/bin/Xvfb
+                "$PWD/enfs/sample.enf" ${pkgs.xorg-server}/bin/Xvfb
               runHook postCheck
             '';
             installPhase = ''
