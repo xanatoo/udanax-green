@@ -30,6 +30,7 @@
 import sys, os, string, x88, tktrans, docbrowser
 from tkinter import *
 from _tkinter import Tcl_Obj
+from tkinter import font as tkfont
 
 REVISION = "$Revision: 2.31 $"
 VERSION = x88.Address(REVISION.split()[1])
@@ -247,6 +248,80 @@ class Clipboard(Notifier):
         self.marktext.delete("clip.first", "clip.last")
         self.mark(None)
 
+class ControlsHelpBox(tktrans.TransientBox):
+    """A readable, selectable quick reference to the original Pyxi controls."""
+
+    sections = (
+        ("Navigation", (
+            ("Address + Enter", "Open a document by its Xanadu address."),
+            ("Alt+Left / Alt+Right", "Go back or forward in document history."),
+            ("Left-click a link", "Follow it in read-only mode."),
+            ("Alt+left-click", "Follow a link even when editing is enabled."),
+            ("Right-click a link", "Inspect its source and target endpoints."),
+        )),
+        ("Documents and comparison", (
+            ("Document menu", "Create, import, export, or version a document."),
+            ("Browse Linked Documents", "Discover documents reachable through links."),
+            ("Alt+P", "Toggle View > Parallel View / Compare."),
+            ("Compare button", "Compare two open, read-only documents in parallel."),
+        )),
+        ("Editing and links", (
+            ("Enable Editing", "Allow changes to the current document."),
+            ("Mark", "Mark selected text for reuse in another document."),
+            ("Transclude / Move", "Reuse or relocate marked text in an editable document."),
+            ("Add Source/Target End", "Select text and collect link endpoints."),
+            ("Create Link", "Create a link from collected source/target ends."),
+        )),
+        ("View and application", (
+            ("View menu", "Choose document font, spacing, or Parallel View."),
+            ("Alt+Q", "Quit Pyxi."),
+        )),
+    )
+
+    def __init__(self, parent):
+        super().__init__(parent, "Pyxi Controls and Shortcuts",
+                         buttons=[("Close", 1, ["Escape", "Return"])])
+
+    def buildbody(self, parent):
+        title_font = tkfont.nametofont("TkDefaultFont").copy()
+        title_font.configure(size=max(14, title_font.cget("size") + 3),
+                             weight="bold")
+        title = Label(parent, text="Pyxi controls and shortcuts",
+                      font=title_font, anchor=W)
+        title.pack(side=TOP, fill=X, pady=(0, 3))
+        Label(parent, text="Navigation, editing, link creation and comparison",
+              anchor=W, justify=LEFT).pack(side=TOP, fill=X, pady=(0, 8))
+
+        content_frame = Frame(parent)
+        content_frame.pack(side=TOP, fill=BOTH, expand=1)
+        scroll = Scrollbar(content_frame)
+        scroll.pack(side=RIGHT, fill=Y)
+        text = Text(content_frame, width=76, height=21, wrap=WORD,
+                    font="TkTextFont", bd=0, padx=8, pady=6, cursor="arrow",
+                    tabs=("205",), yscrollcommand=scroll.set)
+        scroll.configure(command=text.yview)
+        text.pack(side=LEFT, fill=BOTH, expand=1)
+
+        section_font = tkfont.nametofont("TkTextFont").copy()
+        section_font.configure(weight="bold", size=section_font.cget("size") + 1)
+        key_font = tkfont.nametofont("TkTextFont").copy()
+        key_font.configure(weight="bold")
+        # Keep the font objects alive for as long as the dialog exists.
+        self._help_fonts = (title_font, section_font, key_font)
+        text.tag_configure("section", font=section_font, foreground="#244669",
+                           spacing1=9, spacing3=3)
+        text.tag_configure("key", font=key_font)
+        # Wrapped descriptions stay aligned below the description column.
+        text.tag_configure("entry", lmargin2=205, spacing3=4)
+        for section, entries in self.sections:
+            text.insert(END, section + "\n", "section")
+            for shortcut, explanation in entries:
+                text.insert(END, shortcut + "\t", ("key", "entry"))
+                text.insert(END, explanation + "\n", "entry")
+        text.configure(state=DISABLED)
+        self.help_text = text
+
+
 class Browser(Notifier, Frame):
     """Browser - the main widget for navigating and editing documents."""
 
@@ -262,6 +337,8 @@ class Browser(Notifier, Frame):
         self.doc_menu = self.builddocmenu(self.doc_btn)
         self.edit_menu = self.buildeditmenu(self.edit_btn)
         self.link_menu = self.buildlinkmenu(self.link_btn)
+        self.view_menu = self.buildviewmenu(self.view_btn)
+        self.help_menu = self.buildhelpmenu(self.help_btn)
         self.doc_frame = self.buildtextarea(self, scrollside)
         self.doc_frame.pack(fill=BOTH, expand=1)
 
@@ -307,49 +384,58 @@ class Browser(Notifier, Frame):
         self.linkactions = [(x88.MARGIN_TYPE, self.marginaction)]
 
     def buildtoolbar(self, parent):
-        """Create the toolbar area."""
+        """Menus on one row; address, edit counter and navigation below."""
         frame = Frame(parent)
+        menus = Frame(frame)
+        menus.pack(side=TOP, fill=X)
+        self.doc_btn = Menubutton(menus, text="Document", padx=4, pady=0)
+        self.edit_btn = Menubutton(menus, text="Edit", padx=4, pady=0)
+        self.link_btn = Menubutton(menus, text="Link", padx=4, pady=0)
+        self.view_btn = Menubutton(menus, text="View", padx=4, pady=0)
+        self.help_btn = Menubutton(menus, text="Help", padx=4, pady=0)
+        for button in (self.doc_btn, self.edit_btn, self.link_btn,
+                       self.view_btn, self.help_btn):
+            button.pack(side=LEFT)
 
+        controls = Frame(frame)
+        controls.pack(side=TOP, fill=X)
+        Label(controls, text="Addr:", font=SMALLFONT).pack(side=LEFT)
         self.loc_var = StringVar()
-        self.loc_entry = Entry(frame, bd=1, width=8, background=INPUTBG,
+        self.loc_entry = Entry(controls, bd=1, width=8, background=INPUTBG,
                                textvariable=self.loc_var)
         self.loc_entry.bind("<Return>", self.eh_return)
         self.loc_entry.pack(side=LEFT, fill=X, expand=1)
 
-        self.edit_label = Label(frame, pady=2, bd=1, font=SMALLFONT)
+        # This is a count of buffered (not yet sent) text edits, NOT another
+        # entry widget.  Keep it visible rather than hiding it when idle.
+        self.edit_label = Label(controls, text="Pending: 0", width=10,
+                                anchor=E, pady=2, bd=1, font=SMALLFONT)
         self.edit_label.bind("<Button>", self.eh_click)
 
-        self.doc_btn = Menubutton(frame, text="Document", padx=4, pady=0)
-        self.edit_btn = Menubutton(frame, text="Edit", padx=4, pady=0)
-        self.link_btn = Menubutton(frame, text="Link", padx=4, pady=0)
-
-        self.back_btn = Button(frame, text="back", font=SMALLFONT,
+        self.back_btn = Button(controls, text="back", font=SMALLFONT,
                                state=DISABLED, padx=4, pady=1, bd=1,
                                command=self.cb_back)
-        self.fwd_btn = Button(frame, text="fwd", font=SMALLFONT,
+        self.fwd_btn = Button(controls, text="fwd", font=SMALLFONT,
                               state=DISABLED, padx=4, pady=1, bd=1,
                               command=self.cb_fwd)
-        self.reload_btn = Button(frame, text="reload", font=SMALLFONT,
+        self.reload_btn = Button(controls, text="reload", font=SMALLFONT,
                                  state=DISABLED, padx=4, pady=1, bd=1,
                                  command=self.cb_reload)
-        for child in [self.reload_btn, self.fwd_btn, self.back_btn,
-                      self.link_btn, self.edit_btn, self.doc_btn,
-                      self.edit_label]:
+        for child in (self.reload_btn, self.fwd_btn, self.back_btn,
+                      self.edit_label):
             child.pack(side=RIGHT)
         return frame
 
     def builddocmenu(self, parent):
-        """Create the Document menu."""
-        parent["menu"] = menu = Menu(parent)
-
+        """Create the Document menu for document operations."""
+        parent["menu"] = menu = Menu(parent, tearoff=0)
         menu.add_command(label="Open New Window",
                          command=self.cb_newwindow)
-        menu.add_command(label="Parallel View / Compare (Alt+P)",
-                         command=self.cb_parallel)
         menu.add_command(label="Create New Document",
                          command=self.cb_createdocument)
         menu.add_command(label="Import New Document",
                          command=self.cb_importdocument)
+        self.import_menu_index = menu.index("end")
         menu.add_command(label="Export Current Document",
                          command=self.cb_exportdocument)
         menu.add_command(label="Create New Version",
@@ -357,18 +443,29 @@ class Browser(Notifier, Frame):
         menu.add_separator()
         menu.add_command(label="Browse Linked Documents...",
                          command=self.cb_browsedocuments)
+        return menu
+
+    def buildviewmenu(self, parent):
+        """Create the View menu for layout and document typography."""
+        parent["menu"] = menu = Menu(parent, tearoff=0)
+        menu.add_command(label="Parallel View / Compare (Alt+P)",
+                         command=self.cb_parallel)
         menu.add_separator()
         self.font_var = StringVar()
         self.font_var.set(PROPFONT)
-        menu.add_radiobutton(label="Monospaced Font", value=MONOFONT,
-                             command=self.cb_font, variable=self.font_var)
         menu.add_radiobutton(label="Proportional Font", value=PROPFONT,
+                             command=self.cb_font, variable=self.font_var)
+        menu.add_radiobutton(label="Monospaced Font", value=MONOFONT,
                              command=self.cb_font, variable=self.font_var)
         self.spacing_var = IntVar()
         self.spacing_var.set(1)
         menu.add_checkbutton(label="Paragraph Spacing",
                              command=self.cb_font, variable=self.spacing_var)
-        menu.add_separator()
+        return menu
+
+    def buildhelpmenu(self, parent):
+        """Create the Help menu."""
+        parent["menu"] = menu = Menu(parent, tearoff=0)
         menu.add_command(label="Controls and Shortcuts...",
                          command=self.cb_shortcuts)
         return menu
@@ -530,7 +627,7 @@ class Browser(Notifier, Frame):
         if ch == "\r": ch = "\n"
         self.inschars.append(ch)
         self.editcount = self.editcount + len(ch)
-        self.edit_label.config(text="%3d" % self.editcount,
+        self.edit_label.config(text="Pending: %d" % self.editcount,
                                foreground="darkgreen", relief=SUNKEN)
         self.doc_text.insert("insert", ch)
         start = "insert - %d c" % len(ch)
@@ -562,7 +659,7 @@ class Browser(Notifier, Frame):
         if ch == "\177" and self.delmax < self.deletelimit:
             self.delmax = self.delmax + 1
         self.editcount = self.editcount + 1
-        self.edit_label.config(text="%3d" % self.editcount,
+        self.edit_label.config(text="Pending: %d" % self.editcount,
                                foreground="darkred", relief=SUNKEN)
         clipboard.unmark(self.doc_text)
         self.send("edit")
@@ -578,7 +675,7 @@ class Browser(Notifier, Frame):
                 self.xs.remove(self.docid, vspan)
             self.editstate = NOTEDITING
         self.editcount = 0
-        try: self.edit_label.config(text="", foreground="black", relief=FLAT)
+        try: self.edit_label.config(text="Pending: 0", foreground="black", relief=FLAT)
         except TclError: pass
 
     # keyboard event handlers
@@ -740,18 +837,8 @@ class Browser(Notifier, Frame):
             LinkedDocumentWindow(self)
 
     def cb_shortcuts(self):
-        """Make Pyxi's original non-obvious interactions discoverable."""
-        tktrans.MessageBox(self, "Pyxi Controls and Shortcuts",
-            "Alt+P: open/close parallel view; open two read-only documents "
-            "and press Compare in the middle.\n"
-            "Alt+Left / Alt+Right: back / forward in document history.\n"
-            "Alt+Q: quit. Enter in the address field: open a document.\n"
-            "Click a link end in read-only mode, or Alt+click while editing, "
-            "to follow it. Right-click a link end for its endpoints.\n"
-            "Select text, then use the Edit menu to Mark, Transclude, or "
-            "Move it. Link menu: Add Source/Target End, then Create Link.\n"
-            "Document menu: Browse Linked Documents, font and spacing "
-            "settings, import/export, and version creation.").go()
+        """Show a structured reference rather than a single long paragraph."""
+        ControlsHelpBox(self).go()
 
     def cb_parallel(self):
         """Expose the historical two-pane comparison without a shortcut."""
@@ -1223,7 +1310,8 @@ class Browser(Notifier, Frame):
         self.doc_text.docid = self.docid = docid
         self.editable = editable
         self.doc_menu.entryconfigure(
-            3, label=editable and "Insert Document" or "Import New Document")
+            self.import_menu_index,
+            label=editable and "Insert Document" or "Import New Document")
         self.doc_text.config(bg=editable and INPUTBG or DEFAULTBG)
         self.doc_scroll.config(bg=editable and INPUTBG or DEFAULTBG)
         self.edit_var.set(editable)

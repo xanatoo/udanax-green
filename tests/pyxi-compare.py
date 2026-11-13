@@ -82,7 +82,7 @@ try:
             win.browser.cb_font()
 
             # Invoke the menu option, not an internal toggler.
-            menu = win.browser.doc_menu
+            menu = win.browser.view_menu
             index = menu.index('Parallel View / Compare (Alt+P)')
             assert index is not None
             menu.invoke(index)

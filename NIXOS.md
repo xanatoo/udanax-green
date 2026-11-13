@@ -294,10 +294,10 @@ document reload.
 
 Document text defaults are now slightly larger: 16-pixel proportional Times
 (previously 14) and 14-pixel monospaced Courier (previously 12). The
-**Document** menu retains the font-family and paragraph-spacing choices.
+**View** menu contains the font-family and paragraph-spacing choices.
 The toolbar's compact font is unchanged.
 
-**Document → Parallel View / Compare (Alt+P)** opens a second document pane.
+**View → Parallel View / Compare (Alt+P)** opens a second document pane.
 The two panes share the existing window width and resize together; opening
 Parallel View does not enlarge the window automatically.
 Enter another document address in that pane, leave both panes in read-only
@@ -311,7 +311,7 @@ means results may be wrong when a document contains multiple virtual copies
 of the same span. The flake now exercises this view under Tk/Xvfb against the
 actual backend (`tests/pyxi-compare.py`).
 
-**Document → Controls and Shortcuts...** gives a reminder inside the app:
+**Help → Controls and Shortcuts...** gives a reminder inside the app:
 
 - **Alt+P:** toggle side-by-side parallel view; Compare is active only when
   both panes contain read-only documents.
@@ -327,6 +327,20 @@ actual backend (`tests/pyxi-compare.py`).
   selecting endpoint spans in documents. **Document → Browse Linked
   Documents...** explores graph-connected documents, not every document in
   the database.
+
+The toolbar now separates the menu row (Document, Edit, Link, View, Help)
+from the navigation row. The top address entry is a hierarchical Xanadu
+document identifier (*tumbler*), not a version counter: related versions can
+have distinct, nested addresses. The adjacent **Pending: 0** label is not
+an editable field; it shows buffered insert/delete characters waiting to be
+sent to the backend, turning green for inserts and red for deletions. It is
+visible even when no edits are pending.
+
+The help window now has section headings, bold shortcut names, aligned
+explanations, and a scrollable read-only text area. It can also be reached
+from the new **Help** menu. Font and layout options are now in **View**;
+document creation/import/export and the linked-document browser remain in
+**Document**.
 
 New windows opened from Pyxi retain the parallel-view feature. The compare
 layout now uses integer Tk width values and a compact center button, and
