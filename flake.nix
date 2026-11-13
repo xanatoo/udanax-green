@@ -40,6 +40,8 @@
               "$CC" ${legacyCflags} -Werror=format-security -Wformat \
                 tests/rcfile.c -o rcfile-test
               ./rcfile-test
+              sh tests/backend-smoke.sh \
+                "$PWD/green/be_source/xumain" "$PWD/enfs/sample.enf"
               runHook postCheck
             '';
             installPhase = ''

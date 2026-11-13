@@ -10,6 +10,7 @@
 /* stand alone version */
  
 #include <errno.h>
+#include <stdlib.h>
 #include "xanadu.h"
 #include "requests.h"
 
@@ -27,7 +28,7 @@ bool logstuff;
 typetask *taskptrx;
 FILE *interfaceinput = NULL;
 
-main ()  /* inside temporary */
+int main (void)  /* inside temporary */
 {
   typetask task;
   FILE *fd;
@@ -53,6 +54,11 @@ ntaskorcommand++;
 fprintf(stderr,"%d ",i++);
 */
                 xanadu (&task);
+                if (feof(stdin)) {
+                        /* A finite setup script should terminate cleanly. */
+                        diskexit();
+                        return 0;
+                }
                 testforreservedness ("main");
 /*
                 if (maximumsetupsizehasbeenhit) {

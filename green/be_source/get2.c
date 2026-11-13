@@ -161,9 +161,9 @@ getrequest (taskptr, requestptr)
 
 	prompt (taskptr, "\nrequest? ");
 	c = getc (taskptr->inp);
-	if ((INT)c == EOF) {
-		fprintf(stderr,"endfile\n");
-		taskptr->inp = stdin;
+	if (c == EOF) {
+		/* Let the standalone driver close the database on input EOF. */
+		return (FALSE);
 	}/* else if (c == ':') {
 		while ((c = getc (taskptr->inp)) != '\n');
 		return (FALSE);

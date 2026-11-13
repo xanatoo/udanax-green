@@ -75,3 +75,24 @@ outside Nix.  **No full database persistence round trip or Nix build has been
 verified in the assistant environment.**  Other original-code warnings remain,
 including K&R implicit returns and pointer-format diagnostic issues.  Treat
 runtime correctness and serialized database compatibility as unverified.
+
+## Standalone backend smoke tests
+
+The flake's `checkPhase` now exercises `xumain` with disposable databases,
+not just allocator/parser unit tests. The new `tests/backend-smoke.sh` checks
+that:
+
+- EOF on an empty input script exits without spinning and creates `enf.enf`;
+- a newly created document can be retrieved after closing and reopening;
+- the shipped `sample.enf` opens and a document-span query succeeds;
+- the document-span response remains the same after a second process starts.
+
+The original `xumain` loop previously retried indefinitely on EOF; it now
+closes the database and exits cleanly. Explicit request `16` still quits.
+
+**Caution:** Opening and closing `sample.enf` changes bytes in the database,
+even without user-visible edits. The test deliberately compares decoded query
+results rather than requiring an identical file checksum. The reason for the
+on-disk rewrites, long-term serialization compatibility, and the full
+interactive demonstration are still unverified. The smoke tests do not prove
+that all document contents or links survive a restart.
