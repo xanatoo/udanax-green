@@ -345,3 +345,28 @@ document creation/import/export and the linked-document browser remain in
 New windows opened from Pyxi retain the parallel-view feature. The compare
 layout now uses integer Tk width values and a compact center button, and
 closing the parallel view also clears any active comparison highlights.
+
+### Transcluding marked text in Pyxi
+
+To reuse text without copying its underlying Xanadu content:
+
+1. Open the **source** document. Select a non-empty passage and choose
+   **Edit → Mark**. The marked passage is highlighted.
+2. Navigate to the **destination** document (or another Pyxi window).
+   The mark is kept even when the original document is closed or editing is
+   toggled, although its highlight only appears while viewing the source.
+3. Enable editing in the destination, place the insertion cursor, and choose
+   **Edit → Transclude**. The mark is cleared after a successful transclusion.
+
+Marking and transclusion use Green's `vcopy` protocol operation, which shares
+underlying content; this is *not* a plain-text copy. **Move** requires its
+editable source document to remain open. If no text is marked, invoking
+Transclude now displays an actionable explanation instead of throwing a Tk
+callback traceback. Edits to a marked source invalidate the mark. Pyxi flushes
+pending destination text before transcluding so backend addresses stay aligned.
+
+`tests/pyxi-transclude.py` exercises the workflow using a disposable copy of
+`sample.enf`, real Tk widgets under Xvfb, and the original C backend. It tests
+both navigation and editing-mode transitions, comparison of shared spans,
+flushing buffered destination typing, and persistence after a backend restart.
+The test is part of the flake's package check phase.

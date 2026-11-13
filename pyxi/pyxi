@@ -175,74 +175,108 @@ class XuText(Text):
         self.tag_add(name, start, end)
 
 class Clipboard(Notifier):
-    """Clipboard - a class for marking and moving regions of text.
-    A single clipboard is shared among all the browser windows."""
+    """A session-wide marked source span for transclusion and moving text.
+
+    The Xanadu source address must survive closing its browser window or
+    navigating to the destination.  A Tk text tag cannot serve as the source
+    of truth: the same widget is reused for a different document on navigation.
+    """
 
     def __init__(self, xusession):
         Notifier.__init__(self)
         self.markspan = None
+        self.markdata = None
         self.marktext = None
         self.movable = 0
         self.xs = xusession
 
+    def detach(self, text):
+        """Remove a source highlight without forgetting its Xanadu address."""
+        if text is not self.marktext:
+            return
+        try:
+            text.tag_delete("clip")
+        except TclError:  # The source window may already have been destroyed.
+            pass
+        self.marktext = None
+        self.send("mark")
+
+    def attach(self, text):
+        """Restore the highlight if a browser displays the marked source."""
+        if not self.marked() or text.docid != self.markspan.docid:
+            return
+        if self.marktext is not text:
+            if self.marktext is not None:
+                self.detach(self.marktext)
+            self.marktext = text
+        start, end = text.indices(self.markspan.span)
+        text.tag_add("clip", start, end)
+        text.tag_configure("clip", background=MARKBG)
+        self.send("mark")
+
     def mark(self, vspan, text=None, movable=0):
-        """Set the marked text region."""
-        if self.markspan:
-            self.marktext.tag_delete("clip")
-
-        if vspan:
-            start, end = text.indices(vspan.span)
-            text.tag_add("clip", start, end)
-            text.tag_configure("clip", background=MARKBG)
-            self.movable = movable
-        else:
-            self.movable = 0
-
+        """Store a selected source span and its text, independent of the view."""
+        if self.marktext is not None:
+            self.detach(self.marktext)
         self.markspan = vspan
-        self.marktext = text
+        self.markdata = None
+        self.marktext = None
+        self.movable = 0
+        if vspan is not None:
+            if text is None:
+                raise ValueError("a marked span needs a source text widget")
+            start, end = text.indices(vspan.span)
+            self.markdata = text.get(start, end)
+            self.movable = movable
+            self.attach(text)
         self.send("mark")
 
     def unmark(self, text):
-        """Unset the marked text region."""
-        if text is self.marktext:
+        """Invalidate a mark only when its source text is actively edited."""
+        if text is self.marktext or (self.marked() and
+                                     text.docid == self.markspan.docid):
             self.mark(None)
 
     def marked(self):
-        """Return true if there is some text marked."""
+        """Return true if there is a source span for transclusion."""
         return self.markspan is not None
 
     def vcopy(self, addr, text):
-        """Transclude the marked text at the given address."""
+        """Transclude the marked source even after its browser was closed."""
+        if not self.marked():
+            raise ValueError("Select text and choose Edit > Mark before Transclude")
         docid, vaddr = addr.split()
         self.xs.vcopy(docid, vaddr, x88.SpecSet(self.markspan))
-        data = self.marktext.get("clip.first", "clip.last")
+        data = self.markdata
         text.insert(text.index(vaddr), data)
         text.setsel(x88.Span(vaddr, vaddr + x88.Offset(0, len(data))))
         text.see("insert")
         self.mark(None)
 
     def move(self, addr, text):
-        """Move the marked text to the given address."""
+        """Move text only while the marked source is still open and editable."""
+        if not self.marked() or not self.movable or self.marktext is None:
+            raise ValueError("Mark text in an editable, open source document before Move")
         docid, vaddr = addr.split()
         if self.markspan.contains(addr):
             self.mark(None)
-        elif self.markspan.docid == docid:
+            return
+        if self.markspan.docid == docid:
             # Move text within a document by pivoting it around.
             vspan = self.markspan.span
             if vaddr < vspan.start:
                 self.xs.pivot(docid, vaddr, vspan.start, vspan.end())
             else:
                 self.xs.pivot(docid, vspan.start, vspan.end(), vaddr)
-            data = self.marktext.get("clip.first", "clip.last")
+            data = self.markdata
             text.insert("insert", data)
         else:
-            # Move text to another document by doing vcopy and then remove.
+            # Move across open documents with vcopy followed by remove.
             self.xs.vcopy(docid, vaddr, x88.SpecSet(self.markspan))
-            data = self.marktext.get("clip.first", "clip.last")
+            data = self.markdata
             text.insert(text.index(vaddr), data)
             self.xs.remove(self.markspan.docid, self.markspan.span)
 
-        # Select the newly-inserted text and unset the mark.
         text.setsel(x88.Span(vaddr, vaddr + x88.Offset(0, len(data))))
         text.see("insert")
         self.marktext.delete("clip.first", "clip.last")
@@ -267,8 +301,9 @@ class ControlsHelpBox(tktrans.TransientBox):
         )),
         ("Editing and links", (
             ("Enable Editing", "Allow changes to the current document."),
-            ("Mark", "Mark selected text for reuse in another document."),
-            ("Transclude / Move", "Reuse or relocate marked text in an editable document."),
+            ("Mark", "Select source text, then Edit > Mark. The mark survives navigation."),
+            ("Transclude", "Open a destination, enable editing, place the cursor, then Edit > Transclude."),
+            ("Move", "Move marked text while its editable source document remains open."),
             ("Add Source/Target End", "Select text and collect link endpoints."),
             ("Create Link", "Create a link from collected source/target ends."),
         )),
@@ -580,7 +615,8 @@ class Browser(Notifier, Frame):
         self.edit_menu.entryconfigure(4, state=clipboard.marked() and \
             self.editable and NORMAL or DISABLED)
         self.edit_menu.entryconfigure(5, state=clipboard.marked() and \
-            self.editable and clipboard.movable and NORMAL or DISABLED)
+            self.editable and clipboard.movable and \
+            clipboard.marktext is not None and NORMAL or DISABLED)
         
     def updatelinkmenu(self):
         """Update the Link menu to reflect the selection state."""
@@ -980,20 +1016,55 @@ class Browser(Notifier, Frame):
         docid = self.docid
         self.closedoc()
         self.opendoc(docid, editable=self.edit_var.get())
+        self.doc_text.configure(state=NORMAL if self.editable else DISABLED)
+        clipboard.attach(self.doc_text)
         self.updateeditmenu()
         self.updatelinkmenu()
 
     def cb_mark(self):
-        """Set the selected span of the text as the marked region."""
+        """Mark selected text for reuse, including in a different document."""
+        if not self.docid or not self.doc_text.selected():
+            tktrans.error(self, "Select source text before choosing Mark.",
+                          "Nothing Selected")
+            return
+        self.finishedit()  # Source addresses must refer to committed text.
         clipboard.mark(self.doc_text.selvspan(), self.doc_text, self.editable)
 
     def cb_vcopy(self):
         """Transclude the marked text at the text cursor location."""
-        clipboard.vcopy(self.doc_text.addr("insert"), self.doc_text)
+        if not clipboard.marked():
+            tktrans.error(self, "Select source text and choose Edit > Mark "
+                          "before Transclude.", "No Marked Text")
+            return
+        if not self.docid or not self.editable:
+            tktrans.error(self, "Enable Editing in the destination document "
+                          "before Transclude.", "Read-only Document")
+            return
+        self.finishedit()
+        try:
+            clipboard.vcopy(self.doc_text.addr("insert"), self.doc_text)
+        except x88.XuError as error:
+            tktrans.error(self, str(error), "Transclude Failed")
+            return
+        self.send("edit")
 
     def cb_move(self):
         """Move the marked text to the text cursor location."""
-        clipboard.move(self.doc_text.addr("insert"), self.doc_text)
+        if not clipboard.marked() or clipboard.marktext is None or not clipboard.movable:
+            tktrans.error(self, "Mark text in an editable, open source "
+                          "document before Move.", "No Movable Text")
+            return
+        if not self.docid or not self.editable:
+            tktrans.error(self, "Enable Editing in the destination document "
+                          "before Move.", "Read-only Document")
+            return
+        self.finishedit()
+        try:
+            clipboard.move(self.doc_text.addr("insert"), self.doc_text)
+        except x88.XuError as error:
+            tktrans.error(self, str(error), "Move Failed")
+            return
+        self.send("edit")
 
     # link menu callbacks
 
@@ -1317,6 +1388,7 @@ class Browser(Notifier, Frame):
         self.edit_var.set(editable)
         self.updatefwdback()
         self.send("opendoc")
+        self.updateeditmenu()
 
     def showdoc(self):
         """Render a document without permitting edits in read-only mode."""
@@ -1332,6 +1404,7 @@ class Browser(Notifier, Frame):
                 self.doc_text.delete("1.0", "end")
         finally:
             self.doc_text.configure(state=NORMAL if self.editable else DISABLED)
+        clipboard.attach(self.doc_text)
 
     def closedoc(self):
         """Clean up and close the current document."""
@@ -1342,7 +1415,7 @@ class Browser(Notifier, Frame):
         self.textspec = None
         self.textvspan = None
         self.linkvspan = None
-        clipboard.unmark(self.doc_text)
+        clipboard.detach(self.doc_text)
         self.send("closedoc")
 
 class LinkedDocumentWindow(Toplevel):
