@@ -27,7 +27,7 @@
 # promote the sale, use or other dealings in this Software without
 # prior written authorization from Udanax.com.
 
-import sys, os, string, x88, tktrans
+import sys, os, string, x88, tktrans, docbrowser
 from tkinter import *
 from _tkinter import Tcl_Obj
 
@@ -353,6 +353,9 @@ class Browser(Notifier, Frame):
         menu.add_command(label="Create New Version",
                          command=self.cb_createversion)
         menu.add_separator()
+        menu.add_command(label="Browse Linked Documents...",
+                         command=self.cb_browsedocuments)
+        menu.add_separator()
         self.font_var = StringVar()
         self.font_var.set(PROPFONT)
         menu.add_radiobutton(label="Monospaced Font", value=MONOFONT,
@@ -469,13 +472,14 @@ class Browser(Notifier, Frame):
         
     def updatelinkmenu(self):
         """Update the Link menu to reflect the selection state."""
-        linkends = self.sourceends or self.targetends
+        has_ends = bool(self.sourceends or self.targetends)
+        complete_link = bool(self.sourceends and self.targetends)
 
         last = self.link_menu.index("end")
         self.link_menu.entryconfigure(last - 1,
-            state=linkends and self.editable and NORMAL or DISABLED)
+            state=complete_link and self.editable and NORMAL or DISABLED)
         self.link_menu.entryconfigure(last,
-            state=linkends and NORMAL or DISABLED)
+            state=has_ends and NORMAL or DISABLED)
 
         selected = self.doc_text.selected() and NORMAL or DISABLED
         self.link_menu.entryconfigure(self.sourceindex, state=selected)
@@ -674,6 +678,11 @@ class Browser(Notifier, Frame):
         self.reload()
 
     # document menu callbacks
+
+    def cb_browsedocuments(self):
+        """Explore documents connected by links to the current document."""
+        if self.docid is not None:
+            LinkedDocumentWindow(self)
 
     def cb_newwindow(self):
         """Open a new window on the same document."""
@@ -903,6 +912,15 @@ class Browser(Notifier, Frame):
                     else: result = vspan
         return result
         
+    def eh_readonly_linkend(self, event):
+        """Ordinary click follows links when not editing, like a web browser.
+
+        Retain normal Tk selection in editing mode, and Shift/Ctrl-selection
+        in read-only mode. Alt-click is always handled by eh_linkend.
+        """
+        if not self.editable and not (event.state & 0x5):
+            return self.eh_linkend(event)
+
     def eh_linkend(self, event):
         """Traverse a link when the user clicks on a link end in the text."""
         self.finishedit()
@@ -1090,9 +1108,11 @@ class Browser(Notifier, Frame):
         self.doc_text.tagspecset("target", target)
         self.doc_text.tag_configure("source", underline=1, foreground=SOURCEFG)
         self.doc_text.tag_bind("source", "<Alt-Button-1>", self.eh_linkend)
+        self.doc_text.tag_bind("source", "<Button-1>", self.eh_readonly_linkend)
         self.doc_text.tag_bind("source", "<Button-3>", self.eh_linkprop)
         self.doc_text.tag_configure("target", background=TARGETBG)
         self.doc_text.tag_bind("target", "<Alt-Button-1>", self.eh_linkend)
+        self.doc_text.tag_bind("target", "<Button-1>", self.eh_readonly_linkend)
         self.doc_text.tag_bind("target", "<Button-3>", self.eh_linkprop)
 
     def loaddoc(self, docid, editable=0):
@@ -1153,6 +1173,124 @@ class Browser(Notifier, Frame):
         self.linkvspan = None
         clipboard.unmark(self.doc_text)
         self.send("closedoc")
+
+class LinkedDocumentWindow(Toplevel):
+    """Explore the link-connected documents, not an entire enfilade index."""
+
+    LIMIT = 100
+
+    def __init__(self, browser):
+        Toplevel.__init__(self, browser)
+        self.browser = browser
+        self.title("Udanax Green — Linked Documents")
+        self.geometry("740x430")
+        self.docs = {}              # str(docid) -> address
+        self.summaries = {}         # str(docid) -> short excerpt
+        self.neighbors = {}         # str(docid) -> linked IDs
+        self.entries = []
+        self.status = StringVar(value="")
+
+        Label(self, text="Documents reachable through links from this document. "
+              "This is not a complete database listing.", wraplength=710,
+              justify=LEFT).pack(fill=X, padx=8, pady=7)
+        area = Frame(self)
+        area.pack(fill=BOTH, expand=True, padx=8)
+        scroll = Scrollbar(area)
+        scroll.pack(side=RIGHT, fill=Y)
+        self.listbox = Listbox(area, font="TkFixedFont", width=80,
+                               yscrollcommand=scroll.set)
+        self.listbox.pack(side=LEFT, fill=BOTH, expand=True)
+        scroll.config(command=self.listbox.yview)
+        self.listbox.bind("<Double-Button-1>", self.open_selected)
+        controls = Frame(self)
+        controls.pack(fill=X, padx=8, pady=5)
+        for label, handler in (("Open Selected", self.open_selected),
+                               ("Inspect Selected", self.inspect_selected),
+                               ("Explore Connected", self.explore_connected),
+                               ("Close", self.destroy)):
+            Button(controls, text=label, command=handler).pack(side=LEFT, padx=3)
+        Label(self, textvariable=self.status, anchor=W).pack(fill=X, padx=10, pady=4)
+
+        self.add_document(browser.docid)
+        self.listbox.selection_set(0)
+        self.inspect_selected()
+
+    def add_document(self, address):
+        name = str(address)
+        if name not in self.docs:
+            self.docs[name] = address
+            self.entries.append(name)
+            self.listbox.insert(END, name)
+        return name
+
+    def update_rows(self):
+        selected = self.selected_key()
+        self.listbox.delete(0, END)
+        for key in self.entries:
+            self.listbox.insert(END, "%s   %s" % (key, self.summaries.get(key, "")))
+        if selected in self.entries:
+            index = self.entries.index(selected)
+            self.listbox.selection_set(index)
+            self.listbox.see(index)
+
+    def selected_key(self):
+        indices = self.listbox.curselection()
+        return self.entries[int(indices[0])] if indices else None
+
+    def inspect(self, key):
+        if key in self.neighbors:
+            return self.neighbors[key]
+        address = self.docs[key]
+        excerpt, linked = docbrowser.inspect_document(
+            self.browser.xs, address, already_open=(address == self.browser.docid))
+        self.summaries[key] = excerpt
+        self.neighbors[key] = [self.add_document(value) for value in linked]
+        self.update_rows()
+        return self.neighbors[key]
+
+    def inspect_selected(self):
+        key = self.selected_key()
+        if key is None:
+            return
+        try:
+            links = self.inspect(key)
+            self.status.set("%s: %d linked documents; %d discovered total" %
+                            (key, len(links), len(self.docs)))
+        except (x88.XuError, OSError, ValueError) as exc:
+            self.status.set("Could not inspect %s: %s" % (key, exc))
+
+    def explore_connected(self):
+        """Bounded breadth-first traversal; missing/unreadable docs are noted."""
+        from collections import deque
+        pending = deque(self.entries)
+        failures = []
+        while pending and len(self.neighbors) < self.LIMIT:
+            key = pending.popleft()
+            if key in self.neighbors:
+                continue
+            try:
+                for target in self.inspect(key):
+                    if target not in self.neighbors and target not in pending:
+                        pending.append(target)
+            except (x88.XuError, OSError, ValueError) as exc:
+                failures.append("%s: %s" % (key, exc))
+            self.update_idletasks()
+        self.status.set("Inspected %d documents; found %d. %s%s" % (
+            len(self.neighbors), len(self.docs),
+            "%d unreadable. " % len(failures) if failures else "",
+            "Stopped at %d-document limit." % self.LIMIT if pending else ""))
+
+    def open_selected(self, event=None):
+        key = self.selected_key()
+        if key is None:
+            return
+        try:
+            self.browser.browse(self.docs[key])
+        except (x88.XuError, OSError, ValueError) as exc:
+            self.status.set("Could not open %s: %s" % (key, exc))
+        else:
+            self.status.set("Opened %s in the main browser" % key)
+
 
 class BrowserWindow(Toplevel):
     """BrowserWindow - a Window containing a single Browser."""

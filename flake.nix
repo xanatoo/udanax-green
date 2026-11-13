@@ -49,6 +49,10 @@
               ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
                 tests/pyxi-tk-selection.py ${pkgs.xorg.xorgserver}/bin/Xvfb
               python3 tests/pyxi-protocol.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
+              python3 tests/link-persistence.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
+              ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
+                tests/pyxi-linked-documents.py "$PWD/green/be_source/backend" \
+                "$PWD/enfs/sample.enf" ${pkgs.xorg.xorgserver}/bin/Xvfb
               runHook postCheck
             '';
             installPhase = ''
@@ -78,7 +82,7 @@
             installPhase = ''
               runHook preInstall
               mkdir -p "$out/share/udanax-green/pyxi" "$out/bin"
-              cp pyxi/pyxi pyxi/x88.py pyxi/tktrans.py "$out/share/udanax-green/pyxi/"
+              cp pyxi/pyxi pyxi/x88.py pyxi/tktrans.py pyxi/docbrowser.py "$out/share/udanax-green/pyxi/"
               install -m755 scripts/prepare-pyxi-state.sh "$out/share/udanax-green/pyxi/prepare-state.sh"
               cat > "$out/bin/udanax-pyxi" <<'EOF'
               #!${pkgs.runtimeShell}

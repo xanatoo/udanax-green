@@ -35,13 +35,12 @@ other old-style declarations and pointer/integer conversions remain.
 
 ## Validation limits
 
-The C backend has been compiled with modern GCC on x86_64 Linux, but the
-machine used for this port has no Nix installation, so `nix build` and
-`nix flake check` have **not** been executed. A non-interactive `xumain`
-invocation enters an input loop on EOF; do not treat it as a passing
-functional test. The original code also makes assumptions about pointer
-sizes, data layouts, and file formats. Interactive frontend, database
-correctness, and cross-architecture operation remain **unverified**.
+The C backend has been compiled with modern GCC on x86_64 Linux. The
+assistant environment lacks Nix, but `nix build` and `nix flake check` were
+reported to work on NixOS before this latest change. `xumain` now handles EOF.
+The original code still makes assumptions about pointer sizes, data layouts,
+and file formats. Full database correctness and cross-architecture operation
+remain **unverified**.
 
 ## Historical 2007 disk allocator fix
 
@@ -71,10 +70,10 @@ and corrected `.backendrc` numeric parsing.
 
 The flake check phase runs `tests/freedisk.c` and `tests/rcfile.c`.
 Both tests pass under GCC and AddressSanitizer/UndefinedBehaviorSanitizer
-outside Nix.  **No full database persistence round trip or Nix build has been
-verified in the assistant environment.**  Other original-code warnings remain,
-including K&R implicit returns and pointer-format diagnostic issues.  Treat
-runtime correctness and serialized database compatibility as unverified.
+outside Nix.  Focused allocator, text-persistence, and link-persistence tests have since
+been added, but no complete database validation has been performed. Other
+original-code warnings remain, including K&R implicit returns and
+pointer-format diagnostic issues.
 
 ## Standalone backend smoke tests
 
@@ -141,10 +140,10 @@ Use `nix develop` for a Python interpreter with Tkinter support, and invoke
 `tests/pyxi-protocol.py` also checks that the ported client can open and
 retrieve the introduction from the real backend's sample database.
 
-The graphical application has been launched under Xvfb and has not shown a
-Python traceback during startup, but interactive GUI editing, link editing and
-version creation are **not yet verified**. Historical backend version creation
-still has a known failure. Full `nix flake check` also needs a local NixOS run.
+The graphical frontend launches under Xvfb. Subsequent tests cover real Tk
+link clicking, source/target selection, linked-document discovery, and backend
+link creation on the original sample database. Full interactive editing is
+not covered. Historical backend version creation still has a known failure.
 
 ## Flake applications
 
@@ -238,3 +237,37 @@ Tk index objects and normalizes selection ranges to strings. The flake check
 runs `tests/pyxi-tk-selection.py` on a private Xvfb server to exercise both
 link-menu callbacks using actual Tk selection indices. This validates adding
 link ends to the menu, not creating and following a complete backend link.
+
+## Link navigation and discovering documents
+
+Pyxi's original link navigation uses **Alt + left-click** on a source or
+target link end. In read-only mode, this port also allows an **ordinary
+left-click**. Source ends are blue and underlined; target ends have a shaded
+background. Right-click an end to inspect its link and jump to individual
+ends. While editing, ordinary clicks still position the caret or select
+text, and Alt-click follows the link. The Link menu's **Create Link** command
+now requires both a source and a target end. A new jump link can be
+created, found, followed, and reopened on a disposable copy of `sample.enf` (see `tests/link-persistence.py`). Link creation in a
+fresh, empty database currently fails and needs separate backend debugging.
+
+**Document → Browse Linked Documents...** opens a navigable listing rooted at
+the current document. It discovers documents through the backend's native
+`find_links` and `follow_link` calls in **both directions**, shows brief text
+excerpts, and can inspect a selected document or explore up to 100 connected
+documents. Double-click (or **Open Selected**) to open an entry in the main
+browser. The sample database's introduction has links to Declaration of
+Independence documents. The address field above the editor also permits
+opening known document IDs directly.
+
+**This is not a full database enumeration.** Green's FeBe API has
+`find_documents` *containing a specified content span*, but no documented
+operation to list all document IDs. Documents that are not reachable by
+links from the starting document may not appear. The browser does not parse
+or modify the enfilade format directly; the historical backend itself can
+rewrite database bookkeeping on otherwise read-only opens. Keep backups of
+valuable databases.
+
+`tests/pyxi-linked-documents.py` uses the real C backend with the shipped
+sample database, Tk under Xvfb, ordinary link-click navigation, editable
+text-click behavior, connected-document discovery, and opening a document
+from the new browser. The test runs against a **temporary copied database**.
