@@ -28,7 +28,7 @@ Ka-Ping Yee, 29 August 1999."""
 # promote the sale, use or other dealings in this Software without
 # prior written authorization from Udanax.com.
 
-from Tkinter import *
+from tkinter import *
 import string
 
 class TransientBox(Toplevel):
@@ -193,7 +193,7 @@ class IntegerDialog(EntryDialog):
 
     def validate(self):
         try:
-            result = string.atoi(self.input_var.get())
+            result = int(self.input_var.get())
         except ValueError:
             error(self, "Please enter an integer.")
             return None
@@ -273,9 +273,9 @@ def getint(parent, prompt="Enter an integer:", title="Entry", value="",
 if __name__ == "__main__":
     root = Tk()
     root.withdraw()
-    print ask(root, "Ready to proceed?")
-    print info(root, "This is a message box with some text in it. "
-                     "Isn't this exciting?")
-    print getstring(root)
-    print getint(root, min=0, max=50)
-    print choose(root, [("One", 1), ("Two", 2), ("Three", 3)], default=1)
+    print(ask(root, "Ready to proceed?"))
+    print(info(root, "This is a message box with some text in it. "
+                     "Isn't this exciting?"))
+    print(getstring(root))
+    print(getint(root, min=0, max=50))
+    print(choose(root, [("One", 1), ("Two", 2), ("Three", 3)], default=1))

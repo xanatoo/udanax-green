@@ -27,7 +27,7 @@
 # promote the sale, use or other dealings in this Software without
 # prior written authorization from Udanax.com.
 
-import sys, os, string, socket
+import sys, os, string, socket, functools, subprocess
 
 # ==================================================== OBJECT TYPES AND I/O
 
@@ -40,9 +40,7 @@ def cmpid(a, b):
 
 def istype(klass, object):
     """Return whether an object is a member of a given class."""
-    try: raise object
-    except klass: return 1
-    except: return 0
+    return isinstance(object, klass)
 
 # ------------------------------------------------------------- basic types
 def Number_write(data, stream):
@@ -53,7 +51,7 @@ def Number_read(stream):
     """Read a number from an 88.1 protocol stream."""
     number = 0
     chunk = stream.readchunk()
-    return string.atoi(chunk)
+    return int(chunk)
 
 def String_write(data, stream):
     """Write a string to an 88.1 protocol stream."""
@@ -64,7 +62,7 @@ def String_read(stream):
     """Read a string from an 88.1 protocol stream."""
     ch = stream.read(1)
     if ch != "t":
-        raise ValueError, "starting flag missing in string read"
+        raise ValueError("starting flag missing in string read")
     length = Number_read(stream)
     return stream.read(length)
 
@@ -77,7 +75,7 @@ def Content_read(stream):
     elif ch in string.digits:
         return Address_read(stream, ch)
     else:
-        raise ValueError, "bad char \\x%x in content read" % ord(ch)
+        raise ValueError("bad char \\x%x in content read" % ord(ch))
 
 # ----------------------------------------------------------------- Tumbler
 def strl(longnum):
@@ -92,26 +90,26 @@ class Tumbler:
     def __init__(self, *args):
         """Construct from a list of tumbler digits or a string."""
         if len(args) == 1 and type(args[0]) is type("a"):
-            self.digits = map(string.atol, string.split(args[0], "."))
+            self.digits = list(map(int, args[0].split(".")))
         else:
             if len(args) == 1 and type(args[0]) is type([]):
                 digits = args[0]
             else:
                 digits = list(args)
             for digit in digits:
-                if type(digit) not in [type(1), type(1L)]:
-                    raise TypeError, repr(digits) + \
-                        "is not a string or list of integers"
-            self.digits = map(long, digits)
+                if type(digit) not in [type(1), type(1)]:
+                    raise TypeError(repr(digits) +
+                        "is not a string or list of integers")
+            self.digits = list(map(int, digits))
 
     def __repr__(self):
         """Return a Python expression which will reconstruct this tumbler."""
         return self.__class__.__name__ + \
-            "(" + string.join(map(repr, self.digits), ", ") + ")"
+            "(" + ", ".join(map(repr, self.digits)) + ")"
 
     def __str__(self):
         """Return the period-separated string representation of the tumbler."""
-        return string.join(map(strl, self.digits), ".")
+        return ".".join(map(strl, self.digits))
 
     def __getitem__(self, index):
         return self.digits[index]
@@ -119,10 +117,8 @@ class Tumbler:
     def __len__(self):
         return len(self.digits)
 
-    def __nonzero__(self):
-        for digit in self.digits:
-            if digit != 0: return 1
-        return 0
+    def __bool__(self):
+        return any(digit != 0 for digit in self.digits)
 
     def __add__(self, other):
         for i in range(len(self)):
@@ -138,13 +134,13 @@ class Tumbler:
     def __sub__(self, other):
         for i in range(min(len(self), len(other))):
             if self[i] < other[i]:
-                raise ValueError, "%s is larger than %s" % (other, self)
+                raise ValueError("%s is larger than %s" % (other, self))
             if self[i] > other[i]:
                 return Tumbler([0] * i +
                                [self[i] - other[i]] +
                                self.digits[i+1:])
         if len(self) < len(other):
-            raise ValueError, "%s is larger than %s" % (other, self)
+            raise ValueError("%s is larger than %s" % (other, self))
         if len(self) > len(other):
             return Tumbler([0] * len(other) +
                            self.digits[len(other):])
@@ -176,10 +172,10 @@ class Tumbler:
 def Tumbler_read(stream, prefix=""):
     """Read a tumbler from an 88.1 protocol stream."""
     chunk = prefix + stream.readchunk()
-    digits = map(string.atol, string.split(chunk, "."))
+    digits = list(map(int, chunk.split(".")))
     if not digits:
-        raise ValueError, "exponent missing in tumbler read"
-    digits[:1] = [0L] * int(digits[0])
+        raise ValueError("exponent missing in tumbler read")
+    digits[:1] = [0] * int(digits[0])
     return Tumbler(digits)
 
 # ----------------------------------------------------------------- Address
@@ -189,13 +185,13 @@ class Address(Tumbler):
     def __add__(self, offset):
         """Add an offset to a tumbler."""
         if not istype(Offset, offset):
-            raise TypeError, "%s is not an offset" % repr(offset)
+            raise TypeError("%s is not an offset" % repr(offset))
         return Address(Tumbler.__add__(self, offset).digits)
 
     def __sub__(self, address):
         """Subtract a tumbler from another tumbler to get an offset."""
         if not istype(Address, address):
-            raise TypeError, "%s is not an address" % repr(address)
+            raise TypeError("%s is not an address" % repr(address))
         return Offset(Tumbler.__sub__(self, address).digits)
 
     def split(self):
@@ -214,7 +210,7 @@ class Address(Tumbler):
         if istype(Span, other):
             return Span(self.globalize(other.start),
                         self.globalize(other.width))
-        raise TypeError, "%s is not an address, offset, or span" % repr(other)
+        raise TypeError("%s is not an address, offset, or span" % repr(other))
 
     def localize(self, other):
         """Return a local address given a global address under this one, a
@@ -224,16 +220,16 @@ class Address(Tumbler):
                self.digits[:len(self)] + [0] == other.digits[:len(self)+1]:
                 return Address(other.digits[len(self)+1:])
             else:
-                raise ValueError, "%s is not within %s" % (other, self)
+                raise ValueError("%s is not within %s" % (other, self))
         if istype(Offset, other):
             if [0] * len(self) + [0] == other.digits[:len(self)+1]:
                 return Offset(other.digits[len(self)+1:])
             else:
-                raise ValueError, "%s extends outside of %s" % (other, self)
+                raise ValueError("%s extends outside of %s" % (other, self))
         if istype(Span, other):
             return Span(self.localize(other.start),
                         self.localize(other.width))
-        raise TypeError, "%s is not an address, offset, or span" % repr(other)
+        raise TypeError("%s is not an address, offset, or span" % repr(other))
 
 def Address_read(stream, prefix=""):
     """Read a tumbler address from an 88.1 protocol stream."""
@@ -246,13 +242,13 @@ class Offset(Tumbler):
     def __add__(self, offset):
         """Add an offset to an offset."""
         if not istype(Offset, offset):
-            raise TypeError, "%s is not an offset" % repr(offset)
+            raise TypeError("%s is not an offset" % repr(offset))
         return Offset(Tumbler.__add__(self, offset).digits)
 
     def __sub__(self, offset):
         """Subtract a tumbler from another tumbler to get an offset."""
         if not istype(Offset, offset):
-            raise TypeError, "%s is not an offset" % repr(offset)
+            raise TypeError("%s is not an offset" % repr(offset))
         return Offset(Tumbler.__sub__(self, offset).digits)
 
 def Offset_read(stream):
@@ -267,14 +263,14 @@ class Span:
         """Construct from either a starting and ending address, or
         a starting address and a width offset."""
         if not istype(Address, start):
-            raise TypeError, "%s is not an address" % repr(start)
+            raise TypeError("%s is not an address" % repr(start))
         self.start = start
         if istype(Address, other):
             self.width = other - start
         elif istype(Offset, other):
             self.width = other
         else:
-            raise TypeError, "%s is not an address or offset" % repr(other)
+            raise TypeError("%s is not an address or offset" % repr(other))
 
     def __repr__(self):
         return "Span(" + repr(self.start) + ", " + repr(self.width) + ")"
@@ -282,11 +278,8 @@ class Span:
     def __str__(self):
         return "<Span at " + str(self.start) + " for " + str(self.width) + ">"
 
-    def __len__(self):  
-        return self.width
-
-    def __nonzero__(self):
-        return self.width and 1 or 0
+    def __bool__(self):
+        return bool(self.width)
 
     def __cmp__(self, other):
         """Compare two spans (first by starting address, then by width)."""
@@ -303,7 +296,7 @@ class Span:
         if istype(VSpan, span):
             span = span.globalize()
         elif not istype(Span, span):
-            raise TypeError, "%s is not a span" % repr(span)
+            raise TypeError("%s is not a span" % repr(span))
         if self.start in span:
             if self.end in span:
                 return Span(self.start, self.width)
@@ -325,7 +318,7 @@ class Span:
         elif istype(VSpan, spec):
             return self.contains(spec.globalize())
         else:
-            raise TypeError, "%s is not an address or span" % repr(spec)
+            raise TypeError("%s is not an address or span" % repr(spec))
 
     def write(self, stream):
         """Write a span to an 88.1 protocol stream."""
@@ -354,9 +347,9 @@ class VSpan:
     def __init__(self, docid, span):
         """Construct from a document id and a local span."""
         if not istype(Address, docid):
-            raise TypeError, "%s is not a document address" % repr(docid)
+            raise TypeError("%s is not a document address" % repr(docid))
         if not istype(Span, span):
-            raise TypeError, "%s is not a span" % repr(span)
+            raise TypeError("%s is not a span" % repr(span))
         self.docid = docid
         self.span = span
 
@@ -404,12 +397,12 @@ class VSpec:
     def __init__(self, docid, spans):
         """Construct from a document address and a list of spans."""
         if not istype(Address, docid):
-            raise TypeError, "%s is not a tumbler address" % repr(docid)
+            raise TypeError("%s is not a tumbler address" % repr(docid))
         if type(spans) not in (type([]), type(())):
-            raise TypeError, "%s is not a sequence of spans" % repr(spans)
+            raise TypeError("%s is not a sequence of spans" % repr(spans))
         for span in spans:
             if not istype(Span, span):
-                raise TypeError, "%s is not a sequence of spans" % repr(spans)
+                raise TypeError("%s is not a sequence of spans" % repr(spans))
         self.docid = docid
         spanlist = list(spans)
         spanlist.sort()
@@ -422,7 +415,7 @@ class VSpec:
         spans = []
         for span in self.spans:
             spans.append(", at %s for %s" % (span.start, span.width))
-        return "<VSpec in " + str(self.docid) + string.join(spans, "") + ">"
+        return "<VSpec in " + str(self.docid) + "".join(spans) + ">"
 
     def __getitem__(self, index):
         return VSpan(self.docid, self.spans[index])
@@ -484,13 +477,13 @@ class SpecSet:
             elif istype(VSpan, spec):
                 self.specs.append(VSpec(spec.docid, [spec.span]))
             else:
-                raise TypeError, "%s is not a list of specs" % repr(args)
+                raise TypeError("%s is not a list of specs" % repr(args))
 
     def __repr__(self):
         return "SpecSet(" + repr(self.specs) + ")"
 
     def __str__(self):
-        return "<SpecSet [" + string.join(map(str, self.specs), ", ") + "]>"
+        return "<SpecSet [" + ", ".join(map(str, self.specs)) + "]>"
 
     def __len__(self):
         return len(self.specs)
@@ -512,7 +505,7 @@ class SpecSet:
 
     def append(self, spec):
         if not istype(Span, spec) and not istype(VSpec, spec):
-            raise TypeError, "%s is not a span or a vspec" % spec
+            raise TypeError("%s is not a span or a vspec" % spec)
         self.specs.append(spec)
         
     def write(self, stream):
@@ -533,13 +526,13 @@ def SpecSet_read(stream):
     for i in range(nspecs):
         ch = stream.read(2)
         if ch[1] not in "~\n":
-            raise ValueError, "bad char \\x%x in specset read" % ord(ch[1])
+            raise ValueError("bad char \\x%x in specset read" % ord(ch[1]))
         if ch[0] == "s":
             specs.append(Span_read(stream))
         elif ch[0] == "v":
             specs.append(VSpec_read(stream))
         else:
-            raise ValueError, "bad flag \\x%x in specset read" % ord(ch[1])
+            raise ValueError("bad flag \\x%x in specset read" % ord(ch[1]))
     return SpecSet(specs)
 
 
@@ -556,7 +549,8 @@ NOWIDTH = Offset()
 NOSPECS = SpecSet([])
 
 # exceptions
-XuError = "UdanaxError"
+class XuError(Exception):
+    pass
 
 # access modes
 (READ_ONLY, READ_WRITE) = (1, 2)
@@ -569,6 +563,18 @@ XuError = "UdanaxError"
 
 # conventional link type addresses
 LINK_DOCID = Address(1, 1, 0, 1, 0, 2)
+# Preserve the original comparison semantics on Python 3.
+def _install_comparison(cls):
+    cls.__eq__ = lambda self, other: self.__cmp__(other) == 0
+    cls.__lt__ = lambda self, other: self.__cmp__(other) < 0
+    cls.__le__ = lambda self, other: self.__cmp__(other) <= 0
+    cls.__gt__ = lambda self, other: self.__cmp__(other) > 0
+    cls.__ge__ = lambda self, other: self.__cmp__(other) >= 0
+    cls.__ne__ = lambda self, other: self.__cmp__(other) != 0
+
+for _cls in (Tumbler, Address, Offset, Span, VSpan, VSpec, SpecSet):
+    _install_comparison(_cls)
+
 JUMP_TYPE = VSpec(LINK_DOCID, [Span(Address(2, 1), Offset(0, 1))])
 QUOTE_TYPE = VSpec(LINK_DOCID, [Span(Address(2, 2), Offset(0, 1))])
 FOOTNOTE_TYPE = VSpec(LINK_DOCID, [Span(Address(2, 3), Offset(0, 1))])
@@ -601,9 +607,9 @@ class XuConn:
         while 1:
             if self.stream.read(1) == "\n": break
         if self.stream.read(2) != "P0":
-            raise ValueError, "back-end does not speak 88.1 protocol"
+            raise ValueError("back-end does not speak 88.1 protocol")
         if self.stream.read(1) not in "~\n":
-            raise ValueError, "back-end does not speak 88.1 protocol"
+            raise ValueError("back-end does not speak 88.1 protocol")
 
     def close(self):
         self.stream.close()
@@ -641,9 +647,9 @@ class XuConn:
         try:
             response = self.Number()
         except ValueError:
-            raise XuError, "error response to %d from back-end" % code
+            raise XuError("error response to %d from back-end" % code)
         if response != code:
-            raise XuError, "non-matching response to %d from back-end" % code
+            raise XuError("non-matching response to %d from back-end" % code)
 
 # --------------------------------------------------------------- XuSession
 class XuSession:
@@ -815,7 +821,7 @@ def collapse_sharedspans(sharedspans):
 class XuStream:
     """Abstract class specifying the stream interface."""
     def __init__(self, *args):
-        raise TypeError, "abstract class cannot be instantiated"
+        raise TypeError("abstract class cannot be instantiated")
 
     def read(self, length): pass
     def write(self, data): pass
@@ -825,11 +831,11 @@ class XuStream:
         chars = []
         while 1:
             ch = self.read(1)
-            if not ch: raise XuError, "stream closed prematurely"
+            if not ch: raise XuError("stream closed prematurely")
             if ch in ['', '\n', '~']: break
-            if ch == "?": raise XuError, "error response from back-end"
+            if ch == "?": raise XuError("error response from back-end")
             chars.append(ch)
-        return string.join(chars, '')
+        return ''.join(chars)
 
 # -------------------------------------------------------------- FileStream
 class FileStream(XuStream):
@@ -863,77 +869,67 @@ class FileStream(XuStream):
 
 # --------------------------------------------------------------- TcpStream
 class TcpStream(XuStream):
-    """Stream interface to a TCP connection."""
+    """FeBe is a byte protocol; preserve its one-byte character mapping."""
 
     def __init__(self, hostname, port):
-        self.host = hostname
-        self.port = port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((hostname, port))
+        self.host, self.port = hostname, port
+        self.socket = socket.create_connection((hostname, port))
         self.open = 1
 
     def __repr__(self):
-        result = self.__class__.__name__
-        if self.open:
-            return "<%s to %s port %d>" % (result, self.host, self.port)
-        else:
-            return "<%s closed>" % result
+        return "<TcpStream to %s port %d>" % (self.host, self.port)
 
     def read(self, length):
-        return self.socket.recv(length)
+        return self.socket.recv(length).decode("latin-1")
 
     def write(self, data):
-        self.socket.send(data)
+        self.socket.sendall(data.encode("latin-1"))
 
     def close(self):
         self.socket.close()
         self.open = 0
 
-# -------------------------------------------------------------- PipeStream
+
 class PipeStream(XuStream):
-    """Stream interface to a piped shell command."""
+    """Start the backend directly, without the original named FIFO/shell."""
 
     def __init__(self, command):
-        self.fifo = "pyxi.%d" % os.getpid()
-        try: os.unlink(self.fifo)
-        except: pass
-        os.mkfifo(self.fifo)
-
+        import shlex
         self.command = command
-        self.inpipe = os.popen(command + " < " + self.fifo)
-        self.outpipe = open(self.fifo, "w")
+        self.process = subprocess.Popen(shlex.split(command),
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE,
+                                        bufsize=0)
         self.open = 1
 
     def __repr__(self):
-        result = self.__class__.__name__
-        if self.open:
-            return "<%s to %s>" % (result, self.command)
-        else:
-            return "<%s closed>" % result
-
-    def __del__(self):
-        os.unlink(self.fifo)
+        return "<PipeStream to %s>" % self.command
 
     def read(self, length):
-        return self.inpipe.read(length)
+        return self.process.stdout.read(length).decode("latin-1")
 
     def write(self, data):
-        self.outpipe.write(data)
-        self.outpipe.flush()
+        self.process.stdin.write(data.encode("latin-1"))
+        self.process.stdin.flush()
 
     def close(self):
-        self.inpipe.close()
-        self.outpipe.close()
-        try: os.unlink(self.fifo)
-        except: pass
+        if not self.open:
+            return
         self.open = 0
+        self.process.stdin.close()
+        self.process.stdout.close()
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.process.terminate()
+            self.process.wait(timeout=5)
 
 # ====================================================== DEBUGGING WRAPPERS
 def shortrepr(object):
     if type(object) is type([]):
-        return "[" + string.join(map(shortrepr, object), ", ") + "]"
+        return "[" + ", ".join(map(shortrepr, object)) + "]"
     elif type(object) is type(()):
-        return "(" + string.join(map(shortrepr, object), ", ") + ")"
+        return "(" + ", ".join(map(shortrepr, object)) + ")"
     elif type(object) is type(''):
         if len(object) > 20: return repr(object[:20]) + "..."
         else: return repr(object)
@@ -963,7 +959,7 @@ class MethodWrapper:
         debugindent[self.log] = indent + "  "
 
         try:
-            result = apply(self.method, args)
+            result = self.method(*args)
 
             if not debugmidline[self.log]:
                 basename = self.base.__class__.__name__
@@ -981,7 +977,7 @@ class DebugWrapper:
     def __init__(self, base, log):
         self.__dict__["__base__"] = base
         self.__dict__["__log__"] = log
-        if not debugindent.has_key(log):
+        if not log in debugindent:
             debugindent[log] = ""
             debugmidline[log] = 0
 
@@ -1007,3 +1003,4 @@ def pipeconnect(command):
    
 def testconnect():
     return XuSession(XuConn(FileStream(sys.stdin, sys.stdout)))
+

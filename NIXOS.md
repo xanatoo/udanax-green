@@ -121,3 +121,23 @@ can be claimed functional. The first insertion emitted an internal
 `sample.enf` changed its SHA-256, and repeated open/quit cycles continued
 to change it. This is reproducible but its cause has not yet been identified.
 Always test against a copy of the sample database.
+
+
+## Pyxi graphical frontend (Python 3 / Tk)
+
+The original 1999 Pyxi frontend has been converted to Python 3 while keeping
+its menus, document editor and Tk widgets. Run with `nix run .#pyxi` or build
+with `nix build .#pyxi`. This launcher prepares a writable copy of the sample
+database in `${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green/be/enf.enf`
+and starts the backend through pipes. The original sample in the Nix store is
+never modified. Changes to the local database persist between launches.
+
+Use `nix develop` for a Python interpreter with Tkinter support, and invoke
+`python3 pyxi/test.py` for its historical mocked-protocol test suite.
+`tests/pyxi-protocol.py` also checks that the ported client can open and
+retrieve the introduction from the real backend's sample database.
+
+The graphical application has been launched under Xvfb and has not shown a
+Python traceback during startup, but interactive GUI editing, link editing and
+version creation are **not yet verified**. Historical backend version creation
+still has a known failure. Full `nix flake check` also needs a local NixOS run.

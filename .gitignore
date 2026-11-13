@@ -6,3 +6,7 @@ green/be_source/backenddaemon
 green/be_source/be
 green/be_source/bed
 green/be_source/m
+
+# Python 3 frontend caches
+__pycache__/
+*.pyc

@@ -28,10 +28,10 @@
 # prior written authorization from Udanax.com.
 
 import sys, os, string, x88, tktrans
-from Tkinter import *
+from tkinter import *
 
 REVISION = "$Revision: 2.31 $"
-VERSION = x88.Address(string.split(REVISION)[1])
+VERSION = x88.Address(REVISION.split()[1])
 PROGRAM = "pyxi v" + str(VERSION)
 SMALLFONT = "-*-helvetica-medium-r-normal-*-10-*-75-75-*-*-iso8859-1"
 MONOFONT = "-*-courier-medium-r-normal-*-12-*-75-75-*-*-iso8859-1"
@@ -53,17 +53,17 @@ class Notifier:
         self.listeners = {}
 
     def listen(self, message, callback):
-        if not self.listeners.has_key(message):
+        if not message in self.listeners:
             self.listeners[message] = []
         self.listeners[message].append(callback)
 
     def unlisten(self, message, callback):
-        if self.listeners.has_key(message):
+        if message in self.listeners:
             try: self.listeners[message].remove(callback)
             except ValueError: pass
 
     def send(self, message, data=None):
-        if self.listeners.has_key(message):
+        if message in self.listeners:
             for callback in self.listeners[message]:
                 callback(self, message, data)
 
@@ -72,7 +72,7 @@ class XuText(Text):
 
     def __init__(self, *args, **kwargs):
         self.docid = None
-        apply(Text.__init__, (self,) + args, kwargs)
+        Text.__init__(self, *args, **kwargs)
 
     # conversion among positions, indices, and addresses
 
@@ -89,10 +89,10 @@ class XuText(Text):
             if len(other) > 2:
                 other = self.docid.localize(other)
             if other[0] != 1:
-                raise ValueError, "%s is not in text region" % other
+                raise ValueError("%s is not in text region" % other)
             return other[1] - 1
         else:
-            raise TypeError, "%s is not an index, position, or address" % other
+            raise TypeError("%s is not an index, position, or address" % other)
 
     def index(self, other):
         if type(other) is type(""):
@@ -111,7 +111,7 @@ class XuText(Text):
 
     def indices(self, vspan):
         if not x88.istype(x88.Span, vspan):
-            raise TypeError, "%s is not a span" % vspan
+            raise TypeError("%s is not a span" % vspan)
         return self.index(vspan.start), self.index(vspan.end())
 
     def vspan(self, start, end):
@@ -144,7 +144,7 @@ class XuText(Text):
 
     def selind(self):
         range = self.tag_ranges("sel")
-        if not range: raise ValueError, "no text is selected"
+        if not range: raise ValueError("no text is selected")
         return range
 
     def selvspan(self):
@@ -548,7 +548,7 @@ class Browser(Notifier, Frame):
         """Flush the current editing operation to the back-end."""
         if self.editstate != NOTEDITING:
             if self.editstate == INSERTING:
-                text = string.join(self.inschars, "")
+                text = "".join(self.inschars)
                 self.xs.insert(self.docid, self.insaddr, [text])
             if self.editstate == DELETING:
                 vspan = self.doc_text.vspan(self.delmin, self.delmax)
@@ -604,7 +604,7 @@ class Browser(Notifier, Frame):
 
     def eh_return(self, event):
         """Go to the address that has been entered into the location field."""
-        location = string.strip(self.loc_var.get())
+        location = str.strip(self.loc_var.get())
         self.loc_var.set(location)
         try:
             addr = x88.Address(location)
@@ -725,7 +725,7 @@ class Browser(Notifier, Frame):
                                 x88.SpecSet(x88.JUMP_TYPE))
                     #print "opened the file \"%s\"." % os.path.join(dirpath,file)
                 except IOError:
-                     print "Could not open the file \"%s\"." % os.path.join(dirpath,file)
+                     print("Could not open the file \"%s\"." % os.path.join(dirpath,file))
                  
     def cb_importdocument(self):
         """Read a file or the output of a command, and either insert it
@@ -737,7 +737,7 @@ class Browser(Notifier, Frame):
             "Enter a filename (or a command followed by \"|\"):",
             self.editable and "Insert Document" or "Import Document")
         if file is None: return
-        file = string.strip(file)
+        file = str.strip(file)
         if not file: return
 
         self.busy()
@@ -779,13 +779,13 @@ class Browser(Notifier, Frame):
         file = tktrans.getstring(self,
             "Enter a filename ")
         if file is None: return
-        file = string.strip(file)
+        file = str.strip(file)
         if not file: return
         #print self.doc_text.get("0.0","end")
 
-	output = open(file,"w")
-	output.write(self.doc_text.get("0.0","end"))
-	output.close();
+        output = open(file,"w")
+        output.write(self.doc_text.get("0.0","end"))
+        output.close();
 
     def cb_createversion(self):
         """Create a new version of the current document and open it for
@@ -825,8 +825,8 @@ class Browser(Notifier, Frame):
 
     def cb_link(self):
         """Create a new link with the link ends listed in the Link menu."""
-        choices = map(lambda t: (string.capitalize(x88.TYPE_NAMES[t]), t),
-                      x88.LINK_TYPES)
+        choices = list(map(lambda t: (str.capitalize(x88.TYPE_NAMES[t]), t),
+                      x88.LINK_TYPES))
         result = tktrans.choose(
             self, choices, "Select a link type:", "Link Type")
         if result:
@@ -958,7 +958,7 @@ class Browser(Notifier, Frame):
             for docid in docids.keys():
                 self.xs.open_document(
                     docid, x88.READ_ONLY, x88.CONFLICT_COPY)
-            data = string.join(self.xs.retrieve_contents(dests), "")
+            data = "".join(self.xs.retrieve_contents(dests))
             for docid in docids.keys():
                 self.xs.close_document(docid)
 
@@ -1010,7 +1010,7 @@ class Browser(Notifier, Frame):
 
         label = "Link %s" % str(link)
         if typenames:
-            label = label + " (" + string.join(typenames, ", ") + ")"
+            label = label + " (" + ", ".join(typenames) + ")"
         menu.add_command(label=label, state=DISABLED)
 
         for label, end in (("Source", x88.LINK_SOURCE),
@@ -1183,7 +1183,7 @@ class BrowserWindow(Toplevel):
         try: self.browser.closedoc()
         except (IOError, x88.XuError): pass
 
-        if windows.has_key(self):
+        if self in windows:
             del windows[self]
             if not windows.keys(): self.quit()
         else:
@@ -1263,7 +1263,7 @@ class TwoBrowserWindow(BrowserWindow):
 
     def updatelines(self, *args):
         """Update the transpointing lines in the middle canvas."""
-        def linenum(text, index, atoi=string.atoi, split=string.split):
+        def linenum(text, index, atoi=int, split=str.split):
             return atoi(split(text.index(index), ".")[0])
 
         text, text2 = self.browser.doc_text, self.browser2.doc_text
@@ -1404,24 +1404,24 @@ class TwoBrowserWindow(BrowserWindow):
         BrowserWindow.eh_destroy(self, event)
 
 if __name__ == "__main__":
-    print "Pyxi (Python Udanax Interface) v" + str(VERSION)
-    print "Copyright 1999 by Ka-Ping Yee.  All rights reserved."
-    print "This program and the Udanax Green hypertext server are part of the"
-    print "Udanax project.  Please see http://www.udanax.com/ for details."
+    print("Pyxi (Python Udanax Interface) v" + str(VERSION))
+    print("Copyright 1999 by Ka-Ping Yee.  All rights reserved.")
+    print("This program and the Udanax Green hypertext server are part of the")
+    print("Udanax project.  Please see http://www.udanax.com/ for details.")
     print
 
     dir = os.getcwd()
     if not os.path.isdir("be"):
-        print "There is no directory named \"be\" in which to run the Udanax"
-        print "server.  Please create it, and also create the file (or link)"
-        print "be/backend (the back-end executable)."
+        print("There is no directory named \"be\" in which to run the Udanax")
+        print("server.  Please create it, and also create the file (or link)")
+        print("be/backend (the back-end executable).")
         sys.exit(1)
     if not os.path.isfile("be/backend"):
-        print "There is no file at be/backend.  Please put a copy or a link"
-        print "to the server executable there."
+        print("There is no file at be/backend.  Please put a copy or a link")
+        print("to the server executable there.")
         sys.exit(1)
     if not os.path.exists("be/enf.enf"):
-        print "No enfilade file at be/enf.enf; copying in the default."
+        print("No enfilade file at be/enf.enf; copying in the default.")
         os.system("cp -f ../enfs/sample.enf be/enf.enf")
         
     os.chdir("be")

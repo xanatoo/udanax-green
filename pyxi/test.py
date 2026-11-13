@@ -2,9 +2,9 @@ from x88 import *
 
 def verify(result, expected=1):
     if result != expected:
-        raise ValueError, "result " + repr(result) + \
-                          " did not match " + repr(expected)
-    print "ok"
+        raise ValueError("result " + repr(result) +
+                          " did not match " + repr(expected))
+    print("ok")
 
 # tumbler arithmetic
 a = Address([2,3,4])
