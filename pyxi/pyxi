@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python
 
 # Copyright 1999 by Ka-Ping Yee.  All rights reserved.
 # This file is part of the Udanax Green distribution.
@@ -1435,14 +1435,14 @@ if __name__ == "__main__":
     elif ('-s', '') in opts:
         
         port = 55146
-        host = "ooba"
+        host = "localhost"
         ps = x88.DebugWrapper(x88.TcpStream(host,port), sys.stderr)
         xc = x88.DebugWrapper(x88.XuConn(ps), sys.stderr)
         xs = x88.DebugWrapper(x88.XuSession(xc), sys.stderr)
 #        ps.write("34~0.1.0.1.1~")
     elif ('-t', '') in opts:
         port = 55146
-        host = "ooba"
+        host = "localhost"
         xs = x88.tcpconnect(host,port)
     else:
         xs = x88.pipeconnect("./backend")
