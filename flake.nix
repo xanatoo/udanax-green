@@ -42,6 +42,7 @@
               ./rcfile-test
               sh tests/backend-smoke.sh \
                 "$PWD/green/be_source/xumain" "$PWD/enfs/sample.enf"
+              sh tests/text-persistence.sh "$PWD/green/be_source/xumain"
               runHook postCheck
             '';
             installPhase = ''

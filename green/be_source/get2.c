@@ -35,7 +35,8 @@ getnum (taskptr, numptr)  /* inside temporary */
 		}
 #endif
 	}else {
-		 ungetc (c, taskptr->inp);
+		 if (c != EOF)
+			 ungetc (c, taskptr->inp);
 		 *numptr = num;
 	}
 	return (flag);
@@ -66,7 +67,7 @@ needchar (taskptr, c)
 		if (c == '\n')
 			fprintf (taskptr->errp, "newline\n");
 		else
-			fprintf (taskptr->errp, "%c\n");
+			fprintf (taskptr->errp, "%c\n", c);
 		return(FALSE);
 	}
 	return(TRUE);

@@ -96,3 +96,28 @@ results rather than requiring an identical file checksum. The reason for the
 on-disk rewrites, long-term serialization compatibility, and the full
 interactive demonstration are still unverified. The smoke tests do not prove
 that all document contents or links survive a restart.
+
+## Text insertion and retrieval across restarts
+
+`tests/text-persistence.sh` now runs the standalone protocol against a
+throwaway database, creates document `0.0.1`, inserts `hello Green` at
+virtual address `1`, closes the process, retrieves its 12-byte span in a
+new process, and checks that a second restart returns identical output.
+This test is included in the flake's check phase. It does not exercise
+transclusion, link following, concurrent access, or document versioning.
+
+The original standalone parser also had an `fprintf("%c")` without its
+corresponding character argument on the error path. That is corrected,
+and `getnum` now avoids passing EOF to `ungetc`.
+
+**Known failing operation:** In a disposable newly created document,
+request `13` (create new version of `0.0.1`) aborted in
+`docreatenewversion` after `doopen` failed. This is not marked as a
+passing regression test and needs separate investigation before versioning
+can be claimed functional. The first insertion emitted an internal
+`levelpush` diagnostic on stderr, even though subsequent text reads worked.
+
+**Sample database rewrites:** A controlled open/quit of the original
+`sample.enf` changed its SHA-256, and repeated open/quit cycles continued
+to change it. This is reproducible but its cause has not yet been identified.
+Always test against a copy of the sample database.
