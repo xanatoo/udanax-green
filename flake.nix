@@ -37,6 +37,9 @@
               "$CC" ${legacyCflags} -ffunction-sections -fdata-sections \
                 tests/freedisk.c -Wl,--gc-sections -o freedisk-test
               ./freedisk-test
+              "$CC" ${legacyCflags} -Werror=format-security -Wformat \
+                tests/rcfile.c -o rcfile-test
+              ./rcfile-test
               runHook postCheck
             '';
             installPhase = ''

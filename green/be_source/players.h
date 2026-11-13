@@ -24,9 +24,11 @@ extern PLAYER  player[];
 
 extern INT     n_players;      /* current number of players (including computer) */
 
-extern  void    *new_players(),*leave(),*crash();
+extern  void    *new_players(),*leave();
+extern void crash(int);
 
-extern INT fdtoplayer[32];
-extern INT inputfds ;
+#include <sys/select.h>
+extern INT fdtoplayer[FD_SETSIZE];
+extern fd_set inputfds;
 extern INT nfds ;
 extern INT user;

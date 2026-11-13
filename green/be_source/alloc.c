@@ -7,6 +7,8 @@
 * http://udanax.xanadu.com/license.html and http://www.udanax.com/license.html
 */
 
+#include <unistd.h>
+#include <stdint.h>
 #include "common.h"
 #include "alloc.h"
 #include <sys/errno.h>
@@ -152,18 +154,17 @@ weresurethatthisisourmorecore()
 {
   char *cp;
   HEADER *up;
-  char *sbrk();
   INT temp;
 
 	if (flag)
 		return(NULL);
 	cp = sbrk(allocsize);
-zzalloctop = (char *)cp +allocsize;
-zzallocbot = (char *)cp;
-	if ((INT)cp == -1){
+	if (cp == (void *)-1){
 		flag = 1;
 		return(NULL);
 	}
+zzalloctop = cp + allocsize;
+zzallocbot = cp;
 	up = (HEADER *)cp;
 
 	temp = up->s.size = ((unsigned)allocsize) / sizeof(HEADER);

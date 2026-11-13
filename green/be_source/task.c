@@ -8,6 +8,7 @@
 */
 /* Udanax task stuff */
 
+#include <stdint.h>
 #include "xanadu.h"
 
 extern INT errno;
@@ -66,7 +67,7 @@ talloc (taskptr, nbytes)
 
         head = taskptr->tempspacehead;
         this = (typetthingheader *)eallocwithtag((unsigned)(sizeof(typetthingheader) + nbytes), TASKEDTAG);
-        if (((unsigned)this) & 1)
+        if (((uintptr_t)this) & 1)
                 qerror ("ealloc returned unaligned pointer.\n");
         this->tnext = head;
         this->tlast = NULL;
@@ -74,7 +75,7 @@ talloc (taskptr, nbytes)
                 head->tlast = this;
         taskptr->tempspacehead = this;
         ++this;
-        if (((unsigned)this) & 1)
+        if (((uintptr_t)this) & 1)
                 qerror ("talloc trying to return unaligned pointer.\n");
         return ((INT *)this);
 }

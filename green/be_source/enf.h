@@ -80,6 +80,8 @@ struct structcuc {
         INT                      numberofsons;
 } ;
 typedef struct structcuc  typecuc;
+/* A pointer return must not be inferred as int on 64-bit hosts. */
+extern typecuc *functionweakfindfather();
 
 /* typecbc */   /* core bottom crum */
 struct structcbc {

@@ -56,3 +56,22 @@ database round-trip test. The original allocator has other unverified paths,
 including `changefreediskstructures`. Hash bucket computation now uses
 unsigned wide arithmetic to avoid signed integer overflow; the hash table is
 process-local and is not part of the on-disk representation.
+
+## Modern compiler and runtime fixes (November 2026)
+
+The backend now compiles with GCC `-Werror=format-security` without disabling
+Nix's format-string hardening.  The `test.c` debug messages use `fputs`
+instead of passing an arbitrary message as a format string.
+
+Further compatibility repairs include standard declarations for libc routines,
+correct `sbrk()` failure checks, a pointer-returning allocator declaration for
+the frontend protocol, a 64-bit-safe tumbler byte comparison, byte-pointer
+arithmetic for disk offsets, proper `fd_set` usage for the daemon's `select`,
+and corrected `.backendrc` numeric parsing.
+
+The flake check phase runs `tests/freedisk.c` and `tests/rcfile.c`.
+Both tests pass under GCC and AddressSanitizer/UndefinedBehaviorSanitizer
+outside Nix.  **No full database persistence round trip or Nix build has been
+verified in the assistant environment.**  Other original-code warnings remain,
+including K&R implicit returns and pointer-format diagnostic issues.  Treat
+runtime correctness and serialized database compatibility as unverified.

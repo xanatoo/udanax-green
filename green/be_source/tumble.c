@@ -24,8 +24,8 @@ tumblereq (a,b)
   register INT i;
        /* return (tumblercmp (aptr, bptr) == EQUAL);// old safe & slow// */ 
 /* could speed up by doing comparison directly or stealing from abscmp*/
-	i = (int)aptr+sizeof(tumbler);
-	for (;((int)aptr)<i;){
+	i = sizeof(tumbler);
+	for (;i-- > 0;){
 		if(*aptr++ != *bptr++)
 			return(FALSE);
 	}

@@ -11,6 +11,8 @@
 /* common xanadu header file */
 /*#include <assert.h>*/
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 
 
@@ -120,7 +122,7 @@ typedef unsigned tagtype;   /* for tagging allocated things -- see credel.d*/
 long ntaskorcommand;
 
 
-#define rejuvinateifnotRESERVED(x) (((x)->age==RESERVED)?(int)(x):((x)->age = NEW))
+#define rejuvinateifnotRESERVED(x) (((x)->age==RESERVED)?0:((x)->age = NEW))
 
 #define rejuvinate(x) ((x)->age==RESERVED)?(reservnumber?--reservnumber:testforrejuvinate(x)):0,(x)->age = NEW
 /*not needed #define rejuvinate(x) funcrejuvinate(x)*/
@@ -154,7 +156,6 @@ long ntaskorcommand;
 extern INT reservnumber;
 #define lengthoftumbler(x) intof((x))
 #define SIZEOFZEROHUMBER 3
-extern char *malloc();
 
 #define clear(ptr,count) memset(ptr,0,count)
 #define movmem(src,dest,count) memmove(dest,src,count)

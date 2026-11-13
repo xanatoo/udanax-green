@@ -28,12 +28,12 @@
 extern char hostname[];
 extern int  portname;
 
-INT fdtoplayer[32];
+INT fdtoplayer[FD_SETSIZE];
 tumbler defaultaccount = {0,0,0,0,  1,1,0,14,0};
 
 PLAYER player[MAX_PLAYERS];            /* player information   */
 INT n_players = 0;            
-INT inputfds = 0;
+fd_set inputfds;
 INT nfds = 0;
 
 
@@ -46,11 +46,11 @@ void  *new_players(player, n_playersp, block ,taskptr)
                                until somebody does. */
   typetask *taskptr;
 {
-  INT     readfds;                /* for select() call    */
+  fd_set  readfds;                /* for select() call    */
   INT     s;                      /* temp holder for new socket   */
   INT     rc;                     /* # ready selected sockets */
   struct  sockaddr_in     from;   /* connection acceptor */
-  INT     fromlen = sizeof(from);
+  socklen_t fromlen = sizeof(from);
   struct  timeval t;              /* don't let select() run forever */
   INT     i;
   FILE   *temp;
@@ -67,16 +67,17 @@ void  *new_players(player, n_playersp, block ,taskptr)
     t.tv_sec = 0L;
     t.tv_usec = 3L;
     for (;;) {
-        readfds = 1 << main_socket;
+        FD_ZERO(&readfds);
+        FD_SET(main_socket, &readfds);
     t.tv_sec = 0L;
     t.tv_usec = 3L;
-        if ((rc = select( 32, &readfds, 0, 0, &t )) == -1) {
+        if ((rc = select(main_socket + 1, &readfds, 0, 0, block ? NULL : &t)) == -1) {
 		perror("select");
 		fflush(stdout);
 		break;
 	}
-        if (rc > 0 || block) {
-	    if ((s = accept( main_socket, &from, &fromlen)) < 0) {
+        if (rc > 0) {
+	    if ((s = accept(main_socket, (struct sockaddr *)&from, &fromlen)) < 0) {
 		perror("accept");
 		fflush(stdout);
 		break;
@@ -104,7 +105,7 @@ void  *new_players(player, n_playersp, block ,taskptr)
 
 
 #ifndef DISTRIBUTION
-		fprintf(stderr,"%s\n",&(player[*n_playersp].account));
+		/* Account is a binary tumbler, not a NUL-terminated string. */
 #endif
 		if (!establishprotocol(taskptr->inp, taskptr->outp)) {
 			break;
@@ -114,8 +115,12 @@ void  *new_players(player, n_playersp, block ,taskptr)
 		//logaccount(&(player[*n_playersp].account));
 		player[*n_playersp].wantsout = FALSE;
 		
+		if (s >= FD_SETSIZE) {
+                    close(s);
+                    break;
+                }
 		fdtoplayer[s] = *n_playersp;
-		inputfds |= (1<<s);
+		FD_SET(s, &inputfds);
 		nfds = max (s,nfds);
 		(*n_playersp)++;
 		break;
@@ -134,13 +139,14 @@ void *leave(player, xn_players)
 
   for (i = 0; i < *xn_players; i++)
     if (player[i].wantsout) {
-	  inputfds ^= (1 << (player[i].socket));
+	  FD_CLR(player[i].socket, &inputfds);
 	  if (close(player[i].socket) != 0) {
 		fprintf(stderr,"user %d: ", i);
 		perror("close player.socket");
 	  }
 	  if(*xn_players >1){
 		  player[i] = player[*xn_players - 1];
+              fdtoplayer[player[i].socket] = i;
 	  }
 	  (*xn_players)--;
 	  --i;            /* since this entry is new, test again */
@@ -172,7 +178,7 @@ INT open_sock()		/* Open the main socket. */
 
 fprintf(stderr,"calling bind s = %d \n",s);
 
-  if (bind(s, &sockaddr, sizeof(sockaddr)) < 0) {
+  if (bind(s, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) < 0) {
     perror("bind()");
     exit(1);
   }
@@ -184,9 +190,10 @@ fprintf(stderr,"calling bind s = %d \n",s);
 }
 
 
-void *crash()
+void crash(int signal_number)
 {
   INT i;
+  (void)signal_number;
 
 fprintf(stderr, "CRASH while dealing with user %d\n", user);
   for (i = 0; i < 32; i++)

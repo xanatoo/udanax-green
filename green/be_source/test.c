@@ -37,7 +37,7 @@ foo (msg)
 {
 #ifndef DISTRIBUTION
         if (debug)
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
 #endif
 }
 
@@ -47,7 +47,7 @@ foospan(msg,span)
 {
 #ifndef DISTRIBUTION
         if(debug){
-                fprintf(stderr,msg);
+                fputs(msg, stderr);
                 dumpspan(span);
         }
 #endif
@@ -59,7 +59,7 @@ foospanset(msg,spanset)
 {
 #ifndef DISTRIBUTION
         if(debug){
-                fprintf(stderr,msg); 
+                fputs(msg, stderr);
                 if(!spanset){
                         fprintf(stderr,"null spanset\n");
                 }else{
@@ -91,7 +91,7 @@ foocrum(msg,crumptr)
 {
 #ifndef DISTRIBUTION
         if(debug){
-                fprintf(stderr,msg);
+                fputs(msg, stderr);
                 dump(crumptr);  
         }
 #endif
@@ -123,7 +123,7 @@ foocontext (msg, context)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 dumpcontext (context);
         }
 #endif
@@ -135,7 +135,7 @@ foocontextlist (msg, context)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 dumpcontextlist (context);
         }
 #endif
@@ -147,7 +147,7 @@ fooitemset (msg, iptr)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 dumpitemset (iptr);
         }
 #endif
@@ -159,7 +159,7 @@ fooitem (msg, iptr)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 dumpitem (iptr);
                 fprintf (stderr, "\n");
         }
@@ -172,7 +172,7 @@ footumbler (msg, tptr)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 if (tptr)
                         puttumbler (stderr, tptr);
                 else
@@ -189,7 +189,7 @@ foodsp (msg, dptr, enftype)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 if (dptr)
                         dumpdsp (dptr, enftype);
                 else
@@ -206,7 +206,7 @@ foowid (msg, wptr, enftype)
 {
 #ifndef DISTRIBUTION
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 if (wptr)
                         dumpwid (wptr, enftype);
                 else
@@ -1306,17 +1306,17 @@ checkitem (msg, ptr)
         if (!ptr)
                 return;
         if (debug) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 dumpitem (ptr);
         }
         if (((typeitemheader *)ptr)->itemid < TEXTID || ((typeitemheader *)ptr)->itemid > SPORGLID) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 gerror ("Bad itemtype\n");
         }
         /*checkpointer (sprintf (buf, "%s ptr->next: ", msg), ((typeitemheader *)ptr)->next);*/
         if (((typeitemheader *)ptr)->itemid == VSPANID) {
                 if (((typevspan *)ptr)->stream.mantissa[0] != 1 && ((typevspan *)ptr)->stream.mantissa[0] != 2) {
-                        fprintf (stderr, msg);
+                        fputs(msg, stderr);
                         puttumbler (stderr, &((typevspan *)ptr)->stream);
                         fprintf (stderr, "  ");
                         gerror ("Bad span stream address.\n");
@@ -1337,27 +1337,27 @@ checkpointer (msg, ptr)
 return;       /*
         if (!ptr) {
                 if (debug) {
-                        fprintf (stderr, msg);
+                        fputs(msg, stderr);
                         fprintf (stderr, "NULL pointer\n");
                 } 
                 return;
         }
         if (((unsigned)ptr) & 1) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 gerror ("Pointer non-aligned.\n");
         }
         if (ptr > (char *) 0x1bffff) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 if (ptr < (char *) 0x1e0000)
                         fprintf (stderr, "Pointer in framebuffer\n");
                 gerror ("Pointer in high-mem\n");
         }
         if (ptr < (char *) 0x40000) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 gerror ("Pointer to hardware protected low memory.\n");
         }
         if (ptr < &end//etext//) {
-                fprintf (stderr, msg);
+                fputs(msg, stderr);
                 gerror ("Pointer below end\n");
         }
 */

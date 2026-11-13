@@ -12,6 +12,9 @@
 #include "xanadu.h"
 #include "players.h"
 
+/* Pointer-returning allocator; missing declaration truncated pointers on LP64. */
+extern INT *taskalloc();
+
 #define WORDELIM '~'
 #define TUMDELIM '.'
 #define SPANFLAG 's'

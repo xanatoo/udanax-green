@@ -11,6 +11,7 @@
 */
 #include "defs.h"
 #include <stdio.h>
+#include <string.h>
 #include "port.h"
 #include "alloc.h"
 
@@ -51,7 +52,7 @@ void processrcfile()
   INT temp;
   if ((rcfd = fopen(RCFILENAME, "r")) != NULL) {
     while (fgets(buf, BUFSIZ, rcfd)) {
-      if (buf[0] != '#' && sscanf(buf, "%s = %s", name, line) == 2) {
+      if (buf[0] != '#' && sscanf(buf, "%255s = %255s", name, line) == 2) {
         if (!strcmp(name, BACKENDFILEMETANAME))
           strcpy(backendfilename, line);
         else if (!strcmp(name, ACCOUNTFILEMETANAME))
@@ -73,13 +74,13 @@ void processrcfile()
           strcpy(frontendfilename, line);
         else if (!strcmp(name, ALLOCSIZENAME)){
 	  temp = allocsize;
-	  sscanf(line,"%d",allocsize);
+	  sscanf(line,"%d",&allocsize);
 	  if(allocsize<100000||allocsize>300000000){/*minimal sanity checking*/
-		incrementalallocsize = temp;
+		allocsize = temp;
 	  }
         }else if (!strcmp(name, INCREMENTALALLOCSIZENAME)){
 	  temp = incrementalallocsize;
-	  sscanf(line,"%d",incrementalallocsize);
+	  sscanf(line,"%d",&incrementalallocsize);
 	  if(incrementalallocsize<10000||incrementalallocsize>100000000){
 		incrementalallocsize = temp;
 	  }

@@ -57,7 +57,7 @@ main ()  /* inside temporary */
   void    flagquitting();
 
   INT s; /* for socket*/
-  INT inputfds2;
+  fd_set inputfds2;
   INT i;
 
     freopen ("backenderror", "w", stderr);
@@ -116,7 +116,7 @@ main ()  /* inside temporary */
 	    gerror("select in main");
 	} else {
 	    for (i = 0; i <= nfds; i++) {
-		if ((1<<i) & inputfds2) {
+		if (FD_ISSET(i, &inputfds2)) {
 		    user = fdtoplayer[i];
 		    task.inp = player[user].inp;
 		    task.outp = player[user].outp;

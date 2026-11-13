@@ -197,7 +197,7 @@ varpackloaf (father, xloafptr, refcount,flag)
 #endif
 		} 
 
-		return((INT)(loafptr)-(INT)xloafptr);
+		return((INT)(loafptr-(char *)xloafptr));
 	}
 	for (ptr = (typecorecrum *)findleftson(father) ; ptr; ptr = ptr->rightbro) {
 		hputwiddsp((typecuc*)ptr,(char **)&loafptr);
@@ -226,7 +226,7 @@ varpackloaf (father, xloafptr, refcount,flag)
 		}
 	}
 
-	ret = (INT)loafptr - (INT)xloafptr;
+	ret = (INT)(loafptr-(char *)xloafptr);
 	(void) humber3put(ret, (humber) xloafptr, &temp);
 	return (ret);
 }

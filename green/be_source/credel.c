@@ -10,6 +10,7 @@
 #define NEWALLOC 
 #include "common.h"
 #include "enf.h"
+#include <unistd.h>
 #include "reap.h"
 
 typecorecrum *grimreaper;
@@ -682,9 +683,9 @@ void freetoqueue(ptr)
 
 xgrabmorecore()
 {
-  char* malloc(), *tmp;
+  char *tmp;
      tmp = (char *)sbrk(incrementalallocsize);
-if(!tmp){
+if(tmp == (void *)-1){
 	gerror("no more memory in xgrabmorecore\n");
 	}
      ((HEADER*)tmp)->s.size = (incrementalallocsize+sizeof(HEADER) -1)/sizeof(HEADER);
