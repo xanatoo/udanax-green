@@ -507,18 +507,25 @@ class Browser(Notifier, Frame):
 
     def buildeditmenu(self, parent):
         """Create the Edit menu."""
-        parent["menu"] = menu = Menu(parent)
+        # Avoid relying on Tk's platform-dependent tear-off default.  Menu
+        # indices differ by one when a tear-off entry is present, which used
+        # to disable Mark and Transclude on some Tk builds.
+        parent["menu"] = menu = Menu(parent, tearoff=0)
 
         self.edit_var = IntVar()
         menu.add_checkbutton(label="Enable Editing",
                              command=self.cb_editable, variable=self.edit_var)
+        self.enable_edit_menu_index = menu.index("end")
         menu.add_separator()
         menu.add_command(label="Mark", state=DISABLED,
                          command=self.cb_mark)
+        self.mark_menu_index = menu.index("end")
         menu.add_command(label="Transclude", state=DISABLED,
                          command=self.cb_vcopy)
+        self.transclude_menu_index = menu.index("end")
         menu.add_command(label="Move", state=DISABLED,
                          command=self.cb_move)
+        self.move_menu_index = menu.index("end")
         clipboard.listen("mark", self.updateeditmenu)
         return menu
 
@@ -611,12 +618,12 @@ class Browser(Notifier, Frame):
     def updateeditmenu(self, *args):
         """Update the Edit menu to reflect the selection and clipboard state."""
         selected = self.doc_text.selected() and NORMAL or DISABLED
-        self.edit_menu.entryconfigure(3, state=selected)
-        self.edit_menu.entryconfigure(4, state=clipboard.marked() and \
-            self.editable and NORMAL or DISABLED)
-        self.edit_menu.entryconfigure(5, state=clipboard.marked() and \
-            self.editable and clipboard.movable and \
-            clipboard.marktext is not None and NORMAL or DISABLED)
+        self.edit_menu.entryconfigure(self.mark_menu_index, state=selected)
+        self.edit_menu.entryconfigure(self.transclude_menu_index,
+            state=clipboard.marked() and self.editable and NORMAL or DISABLED)
+        self.edit_menu.entryconfigure(self.move_menu_index,
+            state=clipboard.marked() and self.editable and clipboard.movable and
+                  clipboard.marktext is not None and NORMAL or DISABLED)
         
     def updatelinkmenu(self):
         """Update the Link menu to reflect the selection state."""
@@ -723,7 +730,12 @@ class Browser(Notifier, Frame):
 
         if event.state & 4 and event.char: # Ignore Ctrl-* editing commands.
             return "break"
-        elif event.state & ~1: # Pass through if any other modifier is on.
+        # Caps Lock (LockMask=0x2) and Num Lock (Mod2Mask=0x10) are not
+        # editing modifiers.  Treat them like unmodified typing so keys go
+        # through our backend-synchronized edit buffer.  Formerly we passed
+        # those keystrokes to Tk's native Text binding, making the changes
+        # appear locally but disappear on reload.
+        elif event.state & ~(0x1 | 0x2 | 0x10):
             return
 
         if event.char in ["\010", "\177"]:

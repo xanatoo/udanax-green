@@ -100,8 +100,8 @@ try:
             browser.goto(target, editable=1)
             assert pyxi.clipboard.marked(), 'navigation lost the marked source'
             assert pyxi.clipboard.marktext is None
-            assert browser.edit_menu.entrycget(4, 'state') == tk.NORMAL
-            assert browser.edit_menu.entrycget(5, 'state') == tk.DISABLED
+            assert browser.edit_menu.entrycget(browser.transclude_menu_index, 'state') == tk.NORMAL
+            assert browser.edit_menu.entrycget(browser.move_menu_index, 'state') == tk.DISABLED
             assert text.cget('state') == tk.NORMAL
             assert not text.tag_ranges('clip'), 'source highlight leaked to destination'
 
@@ -153,7 +153,7 @@ try:
             assert pyxi.clipboard.marked(), 'editing toggle discarded the mark'
             assert pyxi.clipboard.marktext is text, 'source highlight not restored'
             assert text.tag_ranges('clip')
-            assert browser.edit_menu.entrycget(4, 'state') == tk.NORMAL
+            assert browser.edit_menu.entrycget(browser.transclude_menu_index, 'state') == tk.NORMAL
 
             # Edits to the marked source must invalidate its span.
             text.setcur('end-1c')

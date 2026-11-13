@@ -370,3 +370,25 @@ pending destination text before transcluding so backend addresses stay aligned.
 both navigation and editing-mode transitions, comparison of shared spans,
 flushing buffered destination typing, and persistence after a backend restart.
 The test is part of the flake's package check phase.
+
+### Edit-menu portability and keyboard input
+
+The Edit menu now explicitly disables Tk's historical tear-off item and
+records the **Mark**, **Transclude**, and **Move** entry indices when creating
+them. Previously, `updateeditmenu()` assumed a tear-off entry occupied index
+zero. On Tk builds without that entry, the menu states were applied to the
+wrong actions, and `tests/pyxi-transclude.py` failed while testing the
+Transclude entry. The test now refers to the named entry indices.
+
+`Browser.eh_key()` also treats X11 Caps Lock (`LockMask`) and Num Lock
+(`Mod2Mask`) as non-editing modifiers. Previously, those states bypassed
+Pyxi's backend-synchronized insertion buffer: Tk could show new characters
+locally, but a reload would discard them. Ordinary typing and typing with
+these locks active now take the same edit-buffer path. This does not enable
+editing in read-only mode.
+
+`tests/pyxi-typing.py` exercises the actual Enable Editing menu toggle and
+Tk key events against the C backend under Xvfb. It verifies read-only
+protection, plain/NumLock/CapsLock typing, edit-menu states, toggling edit
+mode off and on, and persistence across reloads and backend restart. The
+flake check phase runs this test alongside the Transclude and paste tests.
