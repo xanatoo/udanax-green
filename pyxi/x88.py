@@ -28,6 +28,7 @@
 # prior written authorization from Udanax.com.
 
 import sys, os, string, socket, functools, subprocess
+from pathlib import Path
 
 # ==================================================== OBJECT TYPES AND I/O
 
@@ -896,6 +897,9 @@ class PipeStream(XuStream):
     def __init__(self, command):
         import shlex
         self.command = command
+        # The GUI changes back to its parent directory after starting the
+        # backend; retain the directory where its log is actually written.
+        self.backend_dir = Path.cwd()
         self.process = subprocess.Popen(shlex.split(command),
                                         stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE,
@@ -907,7 +911,6 @@ class PipeStream(XuStream):
 
     def _backend_failure(self, cause):
         """Include the backend's own diagnostics when its pipe closes."""
-        import pathlib
         status = self.process.poll()
         detail = "Backend pipe failed (%s; exit status %s)" % (cause, status)
         if status is not None and status < 0:
@@ -917,7 +920,7 @@ class PipeStream(XuStream):
                     -status, signal.Signals(-status).name)
             except ValueError:
                 pass
-        logfile = pathlib.Path("backenderror")
+        logfile = self.backend_dir / "backenderror"
         if logfile.is_file():
             try:
                 messages = logfile.read_text(errors="replace").strip()
@@ -925,7 +928,7 @@ class PipeStream(XuStream):
                     detail += "\n%s:\n%s" % (logfile.resolve(), messages[-4000:])
             except OSError:
                 pass
-        detail += "\nDatabase directory: %s" % os.getcwd()
+        detail += "\nBackend directory: %s" % self.backend_dir
         return XuError(detail)
 
     def read(self, length):

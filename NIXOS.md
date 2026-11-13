@@ -162,8 +162,11 @@ recommended interactive entry point and keeps its database under XDG state.
 
 Pyxi's pipe client now reports the actual backend exit status and the contents
 of `backenderror` when the backend exits unexpectedly, rather than only a
-Python `BrokenPipeError`. The backend writes that log in its current working
-directory, normally `${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green/be`.
+Python `BrokenPipeError`. The backend writes that log in its working directory,
+normally `${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green/be`. Pyxi changes
+its working directory after spawning the backend, so its diagnostic helper
+retains the original backend working directory; otherwise it would miss the
+log and show only the signal number.
 
 If the GUI fails while opening the startup document, test against **a fresh
 copy of the sample database** without deleting your current database:
@@ -195,3 +198,19 @@ This is a diagnostic launch, not a repair of the original state. Do not
 copy or delete the failing database without a backup. The backend diagnostic
 file is `be/backenderror` under the selected state directory. A custom
 state directory can also be selected with `UDANAX_GREEN_STATE_DIR=/path`.
+
+## Investigating SIGABRT on an existing database
+
+The backend's reported exit status `-6` is SIGABRT, not a Python transport
+failure. On the normal Pyxi launcher, inspect the log **before running again**
+(it is overwritten each time the backend starts):
+
+```sh
+cat "${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green/be/backenderror"
+```
+
+`nix run .#pyxi-clean` uses a separate, persistent sample database and is a
+safe control test. If it works while the normal app crashes, preserve the
+original `enf.enf` for debugging. Neither an abort signal nor the presence of
+`backenderror` alone proves that the database is corrupted. The GUI regression
+suite checks log collection even when the GUI changes its working directory.
