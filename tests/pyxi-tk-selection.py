@@ -71,7 +71,11 @@ try:
     browser = pyxi.Browser(window, None)
     text = browser.doc_text
     text.docid = x88.Address("1.1.0.1.0.1")
+    # A freshly created browser is read-only until a document is opened.
+    assert text.cget("state") == tk.DISABLED
+    text.configure(state=tk.NORMAL)
     text.insert("1.0", "\n".join(["line %d" % i for i in range(1, 9)]))
+    text.configure(state=tk.DISABLED)
     text.tag_add("sel", "7.1", "7.5")
     native_indices = text.tag_ranges("sel")
     assert len(native_indices) == 2, native_indices

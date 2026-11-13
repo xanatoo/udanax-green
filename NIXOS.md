@@ -271,3 +271,21 @@ valuable databases.
 sample database, Tk under Xvfb, ordinary link-click navigation, editable
 text-click behavior, connected-document discovery, and opening a document
 from the new browser. The test runs against a **temporary copied database**.
+
+### Pyxi clipboard behavior
+
+When **Enable Editing** is off, Pyxi's Tk text widget is truly disabled,
+including X11 middle-button PRIMARY selection paste, Ctrl+V/Shift+Insert,
+and Tk's other built-in mutation shortcuts. You can still select/copy text
+and follow links. Pyxi briefly enables the widget internally when loading a
+document, then restores the editing state.
+
+When editing is on, Ctrl+V/Shift+Insert and middle-click paste are routed
+through the Udanax backend in bounded chunks. Since the historical wire
+protocol is Latin-1, pasting text outside that character set is rejected.
+Tk's native Cut, Clear, Undo and Redo bindings are intercepted rather than
+allowing them to silently desynchronize the GUI from the backend.
+
+`tests/pyxi-paste.py` uses a private database copy and real Tk/Xvfb to
+check that read-only paste makes no changes and editable paste survives a
+document reload.

@@ -53,6 +53,9 @@
               ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
                 tests/pyxi-linked-documents.py "$PWD/green/be_source/backend" \
                 "$PWD/enfs/sample.enf" ${pkgs.xorg.xorgserver}/bin/Xvfb
+              ${pkgs.python3.withPackages (ps: [ ps.tkinter ])}/bin/python3 \
+                tests/pyxi-paste.py "$PWD/green/be_source/backend" \
+                "$PWD/enfs/sample.enf" ${pkgs.xorg.xorgserver}/bin/Xvfb
               runHook postCheck
             '';
             installPhase = ''

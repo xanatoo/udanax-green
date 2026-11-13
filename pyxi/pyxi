@@ -409,7 +409,10 @@ class Browser(Notifier, Frame):
 
         self.doc_scroll = Scrollbar(frame, bd=2, width=11)
         self.doc_scroll.pack(side=scrollside, fill=Y)
-        self.doc_text = XuText(frame, wrap=WORD, font=PROPFONT, spacing1=10)
+        # Tk's disabled state blocks its class-level editing bindings, too
+        # (including X11 PRIMARY selection middle-button paste).
+        self.doc_text = XuText(frame, wrap=WORD, font=PROPFONT, spacing1=10,
+                               state=DISABLED)
         self.doc_text.pack(fill=BOTH, expand=1)
         def yview(cmd, pos, units=None, self=self):
             if units is None:
@@ -423,6 +426,13 @@ class Browser(Notifier, Frame):
             self.send("scroll")
         self.doc_text.configure(yscrollcommand=scrollset)
         self.doc_text.bind("<KeyPress>", self.eh_key)
+        # Tk class bindings can mutate the Text widget without sending a
+        # corresponding protocol edit. Handle both clipboard and X11 PRIMARY
+        # paste through Pyxi's buffered editing path instead.
+        self.doc_text.bind("<<Paste>>", self.eh_paste)
+        self.doc_text.bind("<<PasteSelection>>", self.eh_paste_selection)
+        for name in ("<<Cut>>", "<<Clear>>", "<<Undo>>", "<<Redo>>"):
+            self.doc_text.bind(name, self.eh_no_native_edit)
         self.doc_text.bind("<ButtonPress>", self.eh_click)
         self.doc_text.bind("<ButtonRelease>", self.eh_release)
         return frame
@@ -514,13 +524,14 @@ class Browser(Notifier, Frame):
 
         if ch == "\r": ch = "\n"
         self.inschars.append(ch)
-        self.editcount = self.editcount + 1
+        self.editcount = self.editcount + len(ch)
         self.edit_label.config(text="%3d" % self.editcount,
                                foreground="darkgreen", relief=SUNKEN)
         self.doc_text.insert("insert", ch)
-        self.doc_text.tag_remove("source", "insert - 1 c", "insert")
-        self.doc_text.tag_remove("target", "insert - 1 c", "insert")
-        self.doc_text.tag_remove("type", "insert - 1 c", "insert")
+        start = "insert - %d c" % len(ch)
+        self.doc_text.tag_remove("source", start, "insert")
+        self.doc_text.tag_remove("target", start, "insert")
+        self.doc_text.tag_remove("type", start, "insert")
         self.doc_text.see("insert")
         clipboard.unmark(self.doc_text)
         if self.doc_text.selected():
@@ -585,6 +596,45 @@ class Browser(Notifier, Frame):
             return self.insertchar(event.char)
         else:
             return self.finishedit()
+
+    def eh_no_native_edit(self, event):
+        """Prevent Tk's own edit shortcuts from bypassing the backend."""
+        return "break"
+
+    def eh_paste(self, event):
+        return self.paste_selection("CLIPBOARD")
+
+    def eh_paste_selection(self, event):
+        # X11 middle-click paste uses PRIMARY, not CLIPBOARD.
+        if self.editable and self.docid is not None:
+            self.finishedit()
+            self.doc_text.mark_set("insert", "@%d,%d" % (event.x, event.y))
+        return self.paste_selection("PRIMARY")
+
+    def paste_selection(self, selection):
+        """Insert pasted text through the protocol, never through Tk alone."""
+        if not self.editable or self.docid is None:
+            return "break"
+        try:
+            data = self.doc_text.selection_get(selection=selection)
+        except TclError:  # Nothing owns that clipboard/selection.
+            return "break"
+        data = data.replace("\r\n", "\n").replace("\r", "\n")
+        if not data:
+            return "break"
+        # The historical protocol is Latin-1, not Unicode. Do not display
+        # characters the backend cannot store.
+        try:
+            data.encode("latin-1")
+        except UnicodeEncodeError:
+            tktrans.error(self, "The Udanax protocol supports Latin-1 text only.",
+                          "Paste Failed")
+            return "break"
+        # The backend's insertion buffer is limited; flush in small chunks.
+        for pos in range(0, len(data), 512):
+            self.insertchar(data[pos:pos + 512])
+            self.finishedit()
+        return "break"
 
     def eh_keyrelease(self, event):
         """Update menus when Shift or a cursor-movement key is released,
@@ -1156,11 +1206,19 @@ class Browser(Notifier, Frame):
         self.send("opendoc")
 
     def showdoc(self):
-        """Display the contents of a document in the text area."""
-        if self.textvspan is not None:
-            text = self.xs.retrieve_contents(self.textspec)[0]
-            self.doc_text.delete("1.0", "end")
-            self.doc_text.insert("1.0", text)
+        """Render a document without permitting edits in read-only mode."""
+        # Programmatic loading must briefly enable a disabled Tk Text widget.
+        # Always restore its state, even if rendering raises an exception.
+        self.doc_text.configure(state=NORMAL)
+        try:
+            if self.textvspan is not None:
+                text = self.xs.retrieve_contents(self.textspec)[0]
+                self.doc_text.delete("1.0", "end")
+                self.doc_text.insert("1.0", text)
+            else:
+                self.doc_text.delete("1.0", "end")
+        finally:
+            self.doc_text.configure(state=NORMAL if self.editable else DISABLED)
 
     def closedoc(self):
         """Clean up and close the current document."""
