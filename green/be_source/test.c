@@ -29,7 +29,7 @@ INT numfoo = NUMDISKBLOCKSINLOAF;
 extern char end;        /* lower limit (pointers should be into alloc space */
 extern char etext;   /* as another lower limit on valid pointers */
 
-long nolread;
+extern INT nolread;
 long nowread;
 
 foo (msg)

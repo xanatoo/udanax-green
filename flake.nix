@@ -1,29 +1,32 @@
 {
-  description = "Udanax Green (1999) - original Xanadu backend";
+  description = "Udanax Green — the original Xanadu 88.1 C backend";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs = { self, nixpkgs }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
-      forAllSystems = f: nixpkgs.lib.genAttrs systems
+      forSystems = f: nixpkgs.lib.genAttrs systems
         (system: f nixpkgs.legacyPackages.${system});
+      # The 1980s code uses K&R C declarations and tentative common symbols.
+      legacyCflags = "-O2 -std=gnu89 -fcommon -fno-strict-aliasing "
+        + "-Wno-implicit-function-declaration -Wno-int-conversion "
+        + "-Wno-return-type";
     in {
-      packages = forAllSystems (pkgs:
+      packages = forSystems (pkgs:
         let
           green = pkgs.stdenv.mkDerivation {
             pname = "udanax-green";
-            version = "1999-09-02";
+            version = "1999-09-29";
             src = self;
             nativeBuildInputs = [ pkgs.gnumake ];
-            # Use the historical build system without editing its sources.
-            # Modern GCC defaults to -fno-common; these sources predate it.
+
             buildPhase = ''
               runHook preBuild
-              make -C green/be_source \
+              make -C green/be_source -j''${NIX_BUILD_CORES:-1} \
                 SHELL=${pkgs.bash}/bin/bash \
                 CC="$CC" \
-                CFLAGS="-O2 -g -std=gnu89 -fcommon -Wno-implicit-function-declaration -Wno-int-conversion" \
+                CFLAGS="${legacyCflags}" \
                 LFLAGS="" \
                 all
               runHook postBuild
@@ -33,36 +36,36 @@
               install -Dm755 green/be_source/xumain "$out/bin/udanax-xumain"
               install -Dm755 green/be_source/backend "$out/bin/udanax-backend"
               install -Dm755 green/be_source/backenddaemon "$out/bin/udanax-backenddaemon"
-              mkdir -p "$out/share/udanax-green"
-              cp -R green/edemo green/olddemo "$out/share/udanax-green/" 2>/dev/null || true
+              mkdir -p "$out/share/udanax-green" "$out/share/man/man1"
+              cp -r green/edemo green/olddemo enfs "$out/share/udanax-green/"
+              cp green/man/*.L "$out/share/udanax-green/"
               runHook postInstall
             '';
             meta = with pkgs.lib; {
-              description = "Udanax Green hypertext backend";
+              description = "Original Udanax Green Xanadu hypertext backend";
               homepage = "https://udanax.xanadu.com/green/";
               license = licenses.mit;
               platforms = platforms.linux;
               mainProgram = "udanax-xumain";
             };
           };
-        in {
-          default = green;
-          udanax-green = green;
-        });
+        in { default = green; udanax-green = green; });
 
-      devShells = forAllSystems (pkgs: {
+      devShells = forSystems (pkgs: {
         default = pkgs.mkShell {
-          packages = with pkgs; [ gcc gnumake bash csh gdb python3 tk ];
+          packages = with pkgs; [ gcc gnumake bash gdb python3 tk ];
           shellHook = ''
-            echo "Udanax Green development environment"
-            echo "Build backend: make -C green/be_source SHELL=$(command -v bash) CFLAGS='-O0 -g -std=gnu89 -fcommon' LFLAGS='''"
-            echo "Note: the historical Pyxi frontend requires Python 1.x and has not been ported."
+            export UDANAX_CFLAGS='${legacyCflags} -g'
+            echo 'Udanax Green development environment'
+            echo 'Build: make -C green/be_source CC=cc CFLAGS="$UDANAX_CFLAGS" LFLAGS= all'
+            echo 'Package: nix build; test flake: nix flake check'
+            echo 'The historical Pyxi frontend is not yet ported (Python 1.x).'
           '';
         };
       });
 
-      checks = forAllSystems (pkgs: {
-        backend = self.packages.${pkgs.system}.default;
+      checks = forSystems (pkgs: {
+        backend-build = self.packages.${pkgs.system}.default;
       });
     };
 }

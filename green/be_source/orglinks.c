@@ -13,6 +13,8 @@
 #include "enf.h"
 #include "players.h"
 
+extern INT *taskalloc();
+
 
   bool
 appendpm(taskptr, docisaptr, textset)

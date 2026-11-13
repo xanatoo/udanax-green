@@ -13,6 +13,7 @@
 #include <netinet/in.h>
 #include <errno.h>
   char *findinsideloaf();
+  bool goodblock();
 
 extern INT errno;
 

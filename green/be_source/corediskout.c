@@ -14,16 +14,21 @@
 extern bool isxumain;
  INT nolread;
  INT nolwrote;
- INT noishouldbother;
- INT notakenephewnd;
- INT noeatbrosnd;
+ extern long noishouldbother;
+ extern long notakenephewnd;
+ extern long noeatbrosnd;
 
 typegranf granf;
 typespanf spanf;
 
+static int indiskexit();
+static int orglwritepart2();
+static int subtreewriterecurs();
+static int uniqueoutloaf();
+
 void diskexit()
 {
-  static indiskexit();
+
 	indiskexit();
 }
 
@@ -289,7 +294,7 @@ orglwrite (orglcbcptr)
   typecbc *orglcbcptr;
 {
   typetask task;
-  static orglwritepart2();
+
 
 	if (!orglcbcptr) {
 #ifndef DISTRIBUTION
@@ -319,7 +324,7 @@ static orglwritepart2 (taskptr, orglcbcptr)
   unsigned INT dummy;
   INT newloaf;
   typecuc *orglptr;
-  static subtreewriterecurs();
+
 
   	loaf = zzzeroloaf;
 	if (!orglcbcptr)
@@ -434,7 +439,7 @@ subtreewrite (father)
   typecuc *father;
 {
   typetask task;
-  static subtreewriterecurs();
+
 	inittask (&task);
 	subtreewriterecurs (&task, father);
 	/*decrementandfreedisk (top);*/
@@ -447,7 +452,7 @@ static subtreewriterecurs (taskptr, father)
   typecuc *father;
 {
   typecbc *ptr;
-  static uniqueoutloaf();
+
 /*fprintf(stderr,"entering subtreewriterecurs \n");*/
 
 	if (!father || !father->height)

@@ -40,10 +40,10 @@ recombineseq (father) /** zzz reg 1999 this recombines too much */
 	if(!roomformoresons(father)){
 		return;
 	}
-        for (ptr = (typecuc *)getleftson (father); ptr; ptr = (typecuc *)macrogetrightbro ((typecorecrum *)ptr)){
+        for (ptr = (typecuc *)getleftson (father); ptr; ptr = (typecuc *)getrightbro ((typecorecrum *)ptr)){
                 recombineseq (ptr);
 	}
-        for(ptr=(typecuc *)getleftson(father);ptr&&ptr->rightbro;ptr=(typecuc *)macrogetrightbro((typecorecrum *)ptr)){
+        for(ptr=(typecuc *)getleftson(father);ptr&&ptr->rightbro;ptr=(typecuc *)getrightbro((typecorecrum *)ptr)){
                 if (ptr->age == RESERVED)
                         continue;
                 if (ptr->leftson && roomformoresons (ptr)) {

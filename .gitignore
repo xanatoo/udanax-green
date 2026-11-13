@@ -1,0 +1,8 @@
+# Modern local builds; not part of the historical distribution.
+*.o
+green/be_source/xumain
+green/be_source/backend
+green/be_source/backenddaemon
+green/be_source/be
+green/be_source/bed
+green/be_source/m
