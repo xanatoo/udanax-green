@@ -35,8 +35,8 @@ REVISION = "$Revision: 2.31 $"
 VERSION = x88.Address(REVISION.split()[1])
 PROGRAM = "pyxi v" + str(VERSION)
 SMALLFONT = "-*-helvetica-medium-r-normal-*-10-*-75-75-*-*-iso8859-1"
-MONOFONT = "-*-courier-medium-r-normal-*-12-*-75-75-*-*-iso8859-1"
-PROPFONT = "-*-times-medium-r-normal-*-14-*-75-75-*-*-iso8859-1"
+MONOFONT = "-*-courier-medium-r-normal-*-14-*-75-75-*-*-iso8859-1"
+PROPFONT = "-*-times-medium-r-normal-*-16-*-75-75-*-*-iso8859-1"
 INPUTBG = "#e0c8c0"
 SOURCEFG = "#0000c0"
 TARGETBG = "#d0a060"
@@ -344,6 +344,8 @@ class Browser(Notifier, Frame):
 
         menu.add_command(label="Open New Window",
                          command=self.cb_newwindow)
+        menu.add_command(label="Parallel View / Compare (Alt+P)",
+                         command=self.cb_parallel)
         menu.add_command(label="Create New Document",
                          command=self.cb_createdocument)
         menu.add_command(label="Import New Document",
@@ -366,6 +368,9 @@ class Browser(Notifier, Frame):
         self.spacing_var.set(1)
         menu.add_checkbutton(label="Paragraph Spacing",
                              command=self.cb_font, variable=self.spacing_var)
+        menu.add_separator()
+        menu.add_command(label="Controls and Shortcuts...",
+                         command=self.cb_shortcuts)
         return menu
 
     def buildeditmenu(self, parent):
@@ -499,7 +504,7 @@ class Browser(Notifier, Frame):
         dummy = Label(font=self.doc_text.cget("font"), text="0", bd=0, padx=0)
         charwidth = dummy.winfo_reqwidth()
         width = width - self.doc_scroll.winfo_width()
-        charcount = width / charwidth
+        charcount = max(1, int(width // max(1, charwidth)))
         self.doc_text.config(width=charcount)
 
     # editing
@@ -734,9 +739,29 @@ class Browser(Notifier, Frame):
         if self.docid is not None:
             LinkedDocumentWindow(self)
 
+    def cb_shortcuts(self):
+        """Make Pyxi's original non-obvious interactions discoverable."""
+        tktrans.MessageBox(self, "Pyxi Controls and Shortcuts",
+            "Alt+P: open/close parallel view; open two read-only documents "
+            "and press Compare in the middle.\n"
+            "Alt+Left / Alt+Right: back / forward in document history.\n"
+            "Alt+Q: quit. Enter in the address field: open a document.\n"
+            "Click a link end in read-only mode, or Alt+click while editing, "
+            "to follow it. Right-click a link end for its endpoints.\n"
+            "Select text, then use the Edit menu to Mark, Transclude, or "
+            "Move it. Link menu: Add Source/Target End, then Create Link.\n"
+            "Document menu: Browse Linked Documents, font and spacing "
+            "settings, import/export, and version creation.").go()
+
+    def cb_parallel(self):
+        """Expose the historical two-pane comparison without a shortcut."""
+        window = self.winfo_toplevel()
+        if isinstance(window, TwoBrowserWindow):
+            window.toggle_parallel()
+
     def cb_newwindow(self):
         """Open a new window on the same document."""
-        window = BrowserWindow(self.xs)
+        window = TwoBrowserWindow(self.xs)
         window.goto(self.docid)
 
     def cb_createdocument(self):
@@ -747,7 +772,7 @@ class Browser(Notifier, Frame):
         # workaround: back-end acts weird on empty documents
         self.xs.insert(docid, x88.Address(1, 1), [" "])
         self.xs.close_document(docid)
-        window = BrowserWindow(self.xs)
+        window = TwoBrowserWindow(self.xs)
         window.goto(docid, editable=1)
 
     def importstuff(self,input):
@@ -828,7 +853,7 @@ class Browser(Notifier, Frame):
             if self.editable:
                 self.reload()
             else:
-                window = BrowserWindow(self.xs)
+                window = TwoBrowserWindow(self.xs)
                 window.goto(docid)
 
         finally:
@@ -853,7 +878,7 @@ class Browser(Notifier, Frame):
         """Create a new version of the current document and open it for
         editing in a new window."""
         docid = self.xs.create_version(self.docid)
-        window = BrowserWindow(self.xs)
+        window = TwoBrowserWindow(self.xs)
         window.goto(docid, editable=1)
 
     def cb_font(self):
@@ -1409,13 +1434,20 @@ class TwoBrowserWindow(BrowserWindow):
     def fixsize(self):
         width = self.winfo_width()
         height = self.winfo_height()
-        brwidth = (width-120)/2
+        brwidth = max(150, (width - 120) // 2)
         self.browser.setwidth(brwidth)
         self.browser2.setwidth(brwidth)
 
     def eh_parallel(self, event):
+        """Keyboard shortcut for the historical parallel document view."""
+        self.toggle_parallel()
+        return "break"
+
+    def toggle_parallel(self):
         """Toggle display of the second browser pane."""
         if self.browser2:
+            if self.comparing:
+                self.compare_off()
             for browser in self.browser, self.browser2:
                 browser.unlisten("opendoc", self.updatecompare)
                 browser.unlisten("closedoc", self.cb_closedoc)
@@ -1424,6 +1456,8 @@ class TwoBrowserWindow(BrowserWindow):
             self.trans_frame.forget()
             self.browser2.closedoc()
             self.browser2.forget()
+            self.trans_frame.destroy()
+            self.browser2.destroy()
 
             self.browser.pack(fill=BOTH, expand=1)
             self.browser2 = None
@@ -1434,15 +1468,15 @@ class TwoBrowserWindow(BrowserWindow):
             self.trans_frame = Frame(self, width=100)
             self.browser2 = Browser(self, self.browser.xs)
 
-            self.browser.pack(fill=BOTH, side=LEFT)
-            self.browser2.pack(fill=BOTH, side=RIGHT)
-            self.trans_frame.pack(fill=BOTH, expand=1)
+            self.browser.pack(fill=BOTH, side=LEFT, expand=1)
+            self.trans_frame.pack(fill=Y, side=LEFT)
+            self.browser2.pack(fill=BOTH, side=LEFT, expand=1)
 
             self.fixsize()
             self.bind("<Configure>", self.eh_config)
 
             self.compare_btn = Button(self.trans_frame, font=SMALLFONT, bd=1,
-                                      pady=1, text="compare", width=100,
+                                      pady=1, text="compare", width=10,
                                       command=self.cb_compare)
             self.compare_btn.pack(side=TOP)
             self.updatecompare()
@@ -1467,7 +1501,6 @@ class TwoBrowserWindow(BrowserWindow):
 
         text, text2 = self.browser.doc_text, self.browser2.doc_text
         top, top2 = linenum(text, "@0,0"), linenum(text2, "@0,0")
-        lineheight = text.dlineinfo("@0,0")[3]
 
         self.trans_canvas.config(height=text.winfo_height())
         width = self.trans_canvas.winfo_width()

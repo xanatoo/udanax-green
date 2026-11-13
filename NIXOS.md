@@ -289,3 +289,43 @@ allowing them to silently desynchronize the GUI from the backend.
 `tests/pyxi-paste.py` uses a private database copy and real Tk/Xvfb to
 check that read-only paste makes no changes and editable paste survives a
 document reload.
+
+## Pyxi fonts, parallel Compare, and hidden controls
+
+Document text defaults are now slightly larger: 16-pixel proportional Times
+(previously 14) and 14-pixel monospaced Courier (previously 12). The
+**Document** menu retains the font-family and paragraph-spacing choices.
+The toolbar's compact font is unchanged.
+
+**Document → Parallel View / Compare (Alt+P)** opens a second document pane.
+Enter another document address in that pane, leave both panes in read-only
+mode, then click **Compare** in the middle. This invokes Green's
+`compare_versions` protocol request, coloring *shared underlying text spans*
+and drawing correspondence lines between them; it is not a line-based diff.
+Use Alt+P or the menu again to close the second pane. The sample Declaration
+documents `1.1.0.1.0.3` and `1.1.0.1.0.3.1` have shared spans and are a
+reproducible test case. A backend limitation noted in Pyxi's original code
+means results may be wrong when a document contains multiple virtual copies
+of the same span. The flake now exercises this view under Tk/Xvfb against the
+actual backend (`tests/pyxi-compare.py`).
+
+**Document → Controls and Shortcuts...** gives a reminder inside the app:
+
+- **Alt+P:** toggle side-by-side parallel view; Compare is active only when
+  both panes contain read-only documents.
+- **Alt+Left / Alt+Right:** document history back/forward.
+- **Alt+Q:** quit Pyxi.
+- **Enter in the address field:** open the entered document address.
+- **Left-click a highlighted link end in read-only mode:** follow its link.
+  **Alt+left-click:** follow even while editing. **Right-click:** link
+  properties and available endpoints.
+- **Edit → Mark / Transclude / Move:** selection-based cross-document text
+  sharing; the destination document must be editable.
+- **Link → Add Source End / Add Target End / Create Link:** create links by
+  selecting endpoint spans in documents. **Document → Browse Linked
+  Documents...** explores graph-connected documents, not every document in
+  the database.
+
+New windows opened from Pyxi retain the parallel-view feature. The compare
+layout now uses integer Tk width values and a compact center button, and
+closing the parallel view also clears any active comparison highlights.
