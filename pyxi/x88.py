@@ -905,12 +905,37 @@ class PipeStream(XuStream):
     def __repr__(self):
         return "<PipeStream to %s>" % self.command
 
+    def _backend_failure(self, cause):
+        """Include the backend's own diagnostics when its pipe closes."""
+        import pathlib
+        status = self.process.poll()
+        detail = "Backend pipe failed (%s; exit status %s)" % (cause, status)
+        logfile = pathlib.Path("backenderror")
+        if logfile.is_file():
+            try:
+                messages = logfile.read_text(errors="replace").strip()
+                if messages:
+                    detail += "\n%s:\n%s" % (logfile.resolve(), messages[-4000:])
+            except OSError:
+                pass
+        detail += "\nDatabase directory: %s" % os.getcwd()
+        return XuError(detail)
+
     def read(self, length):
-        return self.process.stdout.read(length).decode("latin-1")
+        try:
+            result = self.process.stdout.read(length)
+        except OSError as exc:
+            raise self._backend_failure(exc) from exc
+        if not result:
+            raise self._backend_failure("unexpected EOF")
+        return result.decode("latin-1")
 
     def write(self, data):
-        self.process.stdin.write(data.encode("latin-1"))
-        self.process.stdin.flush()
+        try:
+            self.process.stdin.write(data.encode("latin-1"))
+            self.process.stdin.flush()
+        except (OSError, BrokenPipeError) as exc:
+            raise self._backend_failure(exc) from exc
 
     def close(self):
         if not self.open:

@@ -157,3 +157,25 @@ The flake exposes named apps with `meta.description` strings:
 The two low-level backend apps do not provide a user interface on their own;
 they require the corresponding client and protocol setup. Pyxi is the
 recommended interactive entry point and keeps its database under XDG state.
+
+## Pyxi backend failures
+
+Pyxi's pipe client now reports the actual backend exit status and the contents
+of `backenderror` when the backend exits unexpectedly, rather than only a
+Python `BrokenPipeError`. The backend writes that log in its current working
+directory, normally `${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green/be`.
+
+If the GUI fails while opening the startup document, test against **a fresh
+copy of the sample database** without deleting your current database:
+
+```sh
+XDG_STATE_HOME="$(mktemp -d)" nix run .#pyxi
+```
+
+This discriminates a database-state problem from a reproducible backend or
+frontend problem. Do not delete or overwrite an existing `enf.enf` merely
+because Pyxi has exited. The backend still requires further 64-bit and database
+compatibility work.
+
+The flake also uses `stdenv.hostPlatform.system` instead of the deprecated
+`pkgs.system` attribute.

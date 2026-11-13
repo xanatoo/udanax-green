@@ -44,6 +44,7 @@
                 "$PWD/green/be_source/xumain" "$PWD/enfs/sample.enf"
               sh tests/text-persistence.sh "$PWD/green/be_source/xumain"
               python3 pyxi/test.py > /dev/null
+              python3 tests/pyxi-backend-failure.py
               python3 tests/pyxi-protocol.py "$PWD/green/be_source/backend" "$PWD/enfs/sample.enf"
               runHook postCheck
             '';
@@ -108,8 +109,8 @@
 
       apps = forSystems (pkgs:
         let
-          green = self.packages.${pkgs.system}.udanax-green;
-          pyxi = self.packages.${pkgs.system}.pyxi;
+          green = self.packages.${pkgs.stdenv.hostPlatform.system}.udanax-green;
+          pyxi = self.packages.${pkgs.stdenv.hostPlatform.system}.pyxi;
           app = program: description: {
             type = "app";
             inherit program;
@@ -142,8 +143,8 @@
       });
 
       checks = forSystems (pkgs: {
-        backend-build = self.packages.${pkgs.system}.default;
-        pyxi-build = self.packages.${pkgs.system}.pyxi;
+        backend-build = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        pyxi-build = self.packages.${pkgs.stdenv.hostPlatform.system}.pyxi;
       });
     };
 }

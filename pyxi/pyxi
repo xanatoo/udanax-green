@@ -1453,7 +1453,16 @@ if __name__ == "__main__":
     windows = {}
     window = TwoBrowserWindow(xs)
     addr = (extra + ["1.1.0.1.0.1"])[0]
-    window.browser.goto(x88.Address(addr))
+    try:
+        window.browser.goto(x88.Address(addr))
+    except (x88.XuError, OSError, ValueError) as exc:
+        # The backend redirects stderr to be/backenderror. Preserve the
+        # diagnostic rather than leave users with only a broken pipe trace.
+        from tkinter import messagebox
+        print("Pyxi could not open the initial document:\n%s" % exc,
+              file=sys.stderr)
+        messagebox.showerror("Udanax Green backend error", str(exc))
+        sys.exit(1)
     mainloop()
     for window in windows.keys():
         window.quit()
