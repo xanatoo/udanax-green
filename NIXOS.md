@@ -298,6 +298,8 @@ Document text defaults are now slightly larger: 16-pixel proportional Times
 The toolbar's compact font is unchanged.
 
 **Document → Parallel View / Compare (Alt+P)** opens a second document pane.
+The two panes share the existing window width and resize together; opening
+Parallel View does not enlarge the window automatically.
 Enter another document address in that pane, leave both panes in read-only
 mode, then click **Compare** in the middle. This invokes Green's
 `compare_versions` protocol request, coloring *shared underlying text spans*

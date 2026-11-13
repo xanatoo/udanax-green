@@ -62,9 +62,13 @@ try:
             pyxi.windows = {}
             pyxi.clipboard = pyxi.Clipboard(session)
             win = pyxi.TwoBrowserWindow(session)
-            win.geometry('950x680')
+            # Do not force a geometry: the old layout ran away when Parallel
+            # View was opened from a normal, automatically sized Pyxi window.
             win.browser.goto(x88.Address('1.1.0.1.0.3'))
             win.update()
+            initial_width = win.winfo_width()
+            initial_height = win.winfo_height()
+            assert initial_width > 400 and initial_height > 200
 
             # The document text, including both font modes, is larger than
             # the original 1999 defaults. Toolbar font is unchanged.
@@ -85,9 +89,22 @@ try:
             win.update()
             assert win.browser2 is not None
             assert win.compare_btn.cget('state') == tk.DISABLED
-            assert int(win.browser.doc_text.cget('width')) > 0
-            assert int(win.browser2.doc_text.cget('width')) > 0
+            assert win.winfo_width() == initial_width, 'Parallel View expanded the toplevel'
+            assert win.winfo_height() == initial_height
+            assert abs(win.browser.winfo_width() - win.browser2.winfo_width()) <= 1
+            assert win.trans_frame.winfo_width() == 90
             assert win.compare_btn.winfo_width() < 200, 'Compare button takes over the layout'
+
+            # Resizing must not feed back into the Text widgets' requested
+            # widths, causing the window to grow larger and larger.
+            for width in (1100, 650, 900):
+                win.geometry('%dx680' % width)
+                win.update()
+                assert win.winfo_width() == width
+                assert abs(win.browser.winfo_width() - win.browser2.winfo_width()) <= 1
+                assert win.trans_frame.winfo_width() == 90
+            win.geometry('%dx%d' % (initial_width, initial_height))
+            win.update()
 
             # Distinct but related Declaration documents from the sample store.
             win.browser2.goto(x88.Address('1.1.0.1.0.3.1'))
@@ -106,6 +123,8 @@ try:
             win.update()
             assert win.browser2 is None
             assert not win.comparing
+            assert win.winfo_width() == initial_width
+            assert int(win.browser.doc_text.cget('width')) == 80
             assert 'left-0' not in win.browser.doc_text.tag_names()
             menu.invoke(index)
             win.update()

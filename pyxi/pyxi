@@ -1427,17 +1427,6 @@ class TwoBrowserWindow(BrowserWindow):
         self.comparing = 0
         self.bind("<Alt-p>", self.eh_parallel)
 
-    def eh_config(self, event):
-        if event.widget is self and self.browser2:
-            self.fixsize()
-
-    def fixsize(self):
-        width = self.winfo_width()
-        height = self.winfo_height()
-        brwidth = max(150, (width - 120) // 2)
-        self.browser.setwidth(brwidth)
-        self.browser2.setwidth(brwidth)
-
     def eh_parallel(self, event):
         """Keyboard shortcut for the historical parallel document view."""
         self.toggle_parallel()
@@ -1452,35 +1441,54 @@ class TwoBrowserWindow(BrowserWindow):
                 browser.unlisten("opendoc", self.updatecompare)
                 browser.unlisten("closedoc", self.cb_closedoc)
 
-            self.browser.forget()
-            self.trans_frame.forget()
+            self.browser.grid_forget()
+            self.trans_frame.grid_forget()
             self.browser2.closedoc()
-            self.browser2.forget()
+            self.browser2.grid_forget()
             self.trans_frame.destroy()
             self.browser2.destroy()
 
+            # Restore the document widget's normal requested width when
+            # returning to a single pane.  Actual widths are always managed
+            # by pack, not by resizing the text widget on Configure events.
+            self.browser.doc_text.configure(width=self._single_text_width)
             self.browser.pack(fill=BOTH, expand=1)
             self.browser2 = None
-            self.bind("<Configure>", "")
 
         else:
+            # Freeze the existing window geometry before creating the second
+            # pane.  Otherwise Tk grows the toplevel to satisfy two Text
+            # widgets' default 80-character widths; the old Configure handler
+            # then increased those requests on every resize, without bound.
+            self.update_idletasks()
+            self.geometry("%dx%d" % (self.winfo_width(), self.winfo_height()))
+            self._single_text_width = self.browser.doc_text.cget("width")
             self.browser.forget()
-            self.trans_frame = Frame(self, width=100)
+            self.trans_frame = Frame(self, width=90)
+            self.trans_frame.pack_propagate(False)
             self.browser2 = Browser(self, self.browser.xs)
 
-            self.browser.pack(fill=BOTH, side=LEFT, expand=1)
-            self.trans_frame.pack(fill=Y, side=LEFT)
-            self.browser2.pack(fill=BOTH, side=LEFT, expand=1)
-
-            self.fixsize()
-            self.bind("<Configure>", self.eh_config)
+            # A Text width of one only changes its requested geometry;
+            # grid still expands each pane to consume its available space.
+            self.browser.doc_text.configure(width=1)
+            self.browser2.doc_text.configure(width=1)
+            # Grid gives the two document panes equal width, even when their
+            # toolbars have a larger natural size than half the window.
+            self.grid_rowconfigure(0, weight=1)
+            self.grid_columnconfigure(0, weight=1, uniform="document")
+            self.grid_columnconfigure(1, weight=0)
+            self.grid_columnconfigure(2, weight=1, uniform="document")
+            self.browser.grid(row=0, column=0, sticky="nsew")
+            self.trans_frame.grid(row=0, column=1, sticky="ns")
+            self.browser2.grid(row=0, column=2, sticky="nsew")
 
             self.compare_btn = Button(self.trans_frame, font=SMALLFONT, bd=1,
                                       pady=1, text="compare", width=10,
                                       command=self.cb_compare)
             self.compare_btn.pack(side=TOP)
             self.updatecompare()
-            self.trans_canvas = Canvas(self.trans_frame)
+            self.trans_canvas = Canvas(self.trans_frame, width=88, height=1,
+                                       highlightthickness=0)
             self.trans_canvas.pack(fill=BOTH, expand=1)
 
             self.sharedspans = []
