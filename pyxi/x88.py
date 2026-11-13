@@ -910,6 +910,13 @@ class PipeStream(XuStream):
         import pathlib
         status = self.process.poll()
         detail = "Backend pipe failed (%s; exit status %s)" % (cause, status)
+        if status is not None and status < 0:
+            import signal
+            try:
+                detail += "\nBackend terminated by signal %s (%s)." % (
+                    -status, signal.Signals(-status).name)
+            except ValueError:
+                pass
         logfile = pathlib.Path("backenderror")
         if logfile.is_file():
             try:

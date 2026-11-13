@@ -179,3 +179,19 @@ compatibility work.
 
 The flake also uses `stdenv.hostPlatform.system` instead of the deprecated
 `pkgs.system` attribute.
+
+
+## Isolating Pyxi database crashes
+
+The normal `nix run .#pyxi` stores its database in
+`$XDG_STATE_HOME/udanax-green/be/enf.enf` (default
+`~/.local/state/udanax-green/be/enf.enf`). The backend may exit with
+SIGABRT, leaving Pyxi reporting a broken pipe. This does not by itself
+identify whether the error is caused by the database, allocator, or protocol.
+
+Run `nix run .#pyxi-clean` to use a **separate persistent database** in
+`$XDG_STATE_HOME/udanax-green-clean` without touching the original.
+This is a diagnostic launch, not a repair of the original state. Do not
+copy or delete the failing database without a backup. The backend diagnostic
+file is `be/backenderror` under the selected state directory. A custom
+state directory can also be selected with `UDANAX_GREEN_STATE_DIR=/path`.

@@ -79,7 +79,7 @@
               cat > "$out/bin/udanax-pyxi" <<'EOF'
               #!${pkgs.runtimeShell}
               set -eu
-              state="''${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green"
+              state="''${UDANAX_GREEN_STATE_DIR:-''${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green}"
               mkdir -p "$state/be"
               if [ ! -e "$state/be/backend" ]; then
                 ln -s ${green}/bin/udanax-backend "$state/be/backend"
@@ -91,6 +91,13 @@
               exec ${pythonTk}/bin/python3 "$(dirname "$0")/../share/udanax-green/pyxi/pyxi" "$@"
               EOF
               chmod +x "$out/bin/udanax-pyxi"
+              cat > "$out/bin/udanax-pyxi-clean" <<'EOF'
+              #!${pkgs.runtimeShell}
+              set -eu
+              export UDANAX_GREEN_STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}/udanax-green-clean"
+              exec "$(dirname "$0")/udanax-pyxi" "$@"
+              EOF
+              chmod +x "$out/bin/udanax-pyxi-clean"
               runHook postInstall
             '';
             meta = with pkgs.lib; {
@@ -121,6 +128,8 @@
             "Launch the historical Pyxi hypertext GUI (Python 3 / Tk)";
           pyxi = app "${pyxi}/bin/udanax-pyxi"
             "Run the Pyxi graphical document browser and editor";
+          pyxi-clean = app "${pyxi}/bin/udanax-pyxi-clean"
+            "Launch Pyxi with a separate clean sample database (leaves existing state untouched)";
           xumain = app "${green}/bin/udanax-xumain"
             "Run the interactive standalone backend protocol console (uses ./enf.enf)";
           backend = app "${green}/bin/udanax-backend"
